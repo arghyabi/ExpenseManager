@@ -1,0 +1,717 @@
+* {
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #f5f5f5;
+    --surface: #ffffff;
+    --text: #333333;
+    --muted: #7f8c8d;
+    --primary: #3498db;
+    --primary-strong: #2980b9;
+    --on-primary: #ffffff;
+    --surface-alt: #f9f9f9;
+    --surface-hover: #f0f0f0;
+    --input-border: #dddddd;
+    --card-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    --border: rgba(0,0,0,0.06);
+    --accent-income: #27ae60;
+    --accent-expense: #e74c3c;
+}
+
+.dark-theme {
+    /* slightly lighter surfaces and a faint border make cards readable on dark background */
+    --bg: #0f1113;
+    --surface: #18191a; /* slightly lighter than before */
+    --text: #e6e6e6;
+    --muted: #9aa0a6;
+    --primary: #4aa3ff;
+    --primary-strong: #2b8fe6;
+    --on-primary: #0b0b0b;
+    --surface-alt: #1f2022; /* subtle separation */
+    --surface-hover: #232425;
+    --input-border: #2b2b2b;
+    --card-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    --border: rgba(255,255,255,0.06);
+    --accent-income: #2ecc71;
+    --accent-expense: #ff6b6b;
+}
+
+html {
+    font-size: 16px;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 15px;
+    background-color: var(--bg);
+    color: var(--text);
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+h1, h2 {
+    color: var(--text);
+    margin-top: 0;
+    margin-bottom: 15px;
+}
+
+h1 {
+    border-bottom: 3px solid var(--primary);
+    padding-bottom: 10px;
+    font-size: 1.8rem;
+}
+
+h2 {
+    font-size: 1.3rem;
+}
+
+.balance-card {
+    background: var(--surface);
+    padding: 15px;
+    border-radius: 5px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border);
+    margin-bottom: 15px;
+}
+
+.balance-amount {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--accent-income);
+}
+
+.btn {
+    display: inline-block;
+    background: var(--primary);
+    color: var(--on-primary);
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    margin-bottom: 15px;
+}
+
+.btn:hover {
+    background: var(--primary-strong);
+}
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Table Responsive Styling */
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    background: var(--surface);
+    min-width: 500px;
+}
+
+th, td {
+    border: 1px solid var(--input-border);
+    padding: 10px;
+    text-align: left;
+    font-size: 0.9rem;
+}
+
+th {
+    background: var(--primary);
+    color: var(--on-primary);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+tr:nth-child(even) {
+    background-color: var(--surface-alt);
+}
+
+tr:hover {
+    background-color: var(--surface-hover);
+}
+
+/* Form Styling */
+form {
+    background: var(--surface);
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border);
+    max-width: 100%;
+}
+
+.form-group {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+}
+
+label {
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: var(--text);
+    font-size: 0.95rem;
+}
+
+input[type="text"],
+input[type="date"],
+input[type="number"],
+select {
+    padding: 10px;
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    font-size: 16px;
+    font-family: inherit;
+    width: 100%;
+    background: transparent;
+    color: var(--text);
+}
+
+input[type="text"]:focus,
+input[type="date"]:focus,
+input[type="number"]:focus,
+select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 6px rgba(52, 152, 219, 0.18);
+}
+
+button {
+    background: var(--primary);
+    color: var(--on-primary);
+    padding: 12px 20px;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+button:hover {
+    background: var(--primary-strong);
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+.back-link {
+    display: block;
+    margin-top: 15px;
+    padding: 10px;
+    text-align: center;
+    background: var(--surface-alt);
+    border-radius: 4px;
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.back-link:hover {
+    background: var(--surface-hover);
+    text-decoration: none;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--input-border);
+    margin: 20px 0;
+}
+
+/* Grid and Card styles for table replacement */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.card {
+    background: var(--surface);
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+}
+
+.card-header {
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+}
+
+.card-body .card-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--surface-alt);
+}
+
+.card-body .card-row:last-child {
+    border-bottom: none;
+}
+
+.label {
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.value {
+    font-weight: 700;
+}
+
+/* Transaction card specifics */
+.tx-card .tx-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.tx-left {
+    flex: 1 1 auto;
+}
+
+.tx-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    margin-left: 12px;
+}
+
+.type-badge {
+    padding: 6px 10px;
+    border-radius: 16px;
+    color: white;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.type-badge.income {
+    background: var(--accent-income);
+}
+
+.type-badge.expense {
+    background: var(--accent-expense);
+}
+
+.tx-amount {
+    font-weight: 800;
+}
+
+.tx-meta {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.meta-sep {
+    margin: 0 6px;
+}
+
+/* Transaction card actions */
+.tx-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+}
+
+.tx-menu-container {
+    position: relative;
+}
+
+.tx-menu-btn {
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 8px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: background-color 200ms ease, color 200ms ease;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    min-height: 32px;
+}
+
+.tx-menu-btn:hover {
+    background: var(--surface-hover);
+}
+
+.tx-menu-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--card-shadow);
+    display: none;
+    flex-direction: column;
+    z-index: 1000;
+    min-width: 140px;
+    margin-top: 4px;
+}
+
+.tx-menu-dropdown.open {
+    display: flex;
+}
+
+.tx-menu-item {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    padding: 10px 16px;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 200ms ease, color 200ms ease;
+    font-size: 14px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tx-menu-item:first-child {
+    border-radius: 8px 8px 0 0;
+}
+
+.tx-menu-item:last-child {
+    border-radius: 0 0 8px 8px;
+}
+
+.tx-menu-item:hover {
+    background: var(--surface-hover);
+}
+
+.tx-menu-item.tx-delete-option:hover {
+    color: #ff4444;
+    background: rgba(255, 68, 68, 0.15);
+}
+
+/* Pagination UI */
+.pagination-wrap {
+    display: flex;
+    justify-content: center;
+    margin: 18px 0 36px;
+}
+.pagination {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+.pagination .page-info {
+    color: var(--text);
+    font-weight: 600;
+}
+.pagination .btn {
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
+/* Header area and theme toggle */
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.theme-toggle {
+    background: transparent;
+    border: 1px solid var(--input-border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.theme-toggle:hover {
+    background: var(--surface-alt);
+}
+
+.version {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-left: 8px;
+    font-weight: 500;
+    vertical-align: middle;
+    display: inline-block;
+}
+
+
+/* Modal overlay & card */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.45);
+    z-index: 9999;
+    padding: 20px;
+}
+
+.modal-overlay.open {
+    display: flex;
+}
+
+.modal-card {
+    width: 100%;
+    max-width: 640px;
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border);
+}
+
+.modal-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:10px;
+}
+
+/* smaller close button inside modal header */
+.modal-header .theme-toggle {
+    padding: 6px 10px;
+    font-size: 14px;
+    border-radius: 6px;
+}
+
+/* make close button compact and not square */
+#modal-close {
+    padding: 4px 6px !important;
+    font-size: 16px !important;
+    width: auto !important;
+    height: auto !important;
+    min-width: 32px;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+}
+
+.modal-card form { max-width: 100%; }
+
+.modal-card button[type="submit"] { flex: 1 1 auto; }
+
+/* ensure cancel/back-link stays inside modal with uniform button sizing */
+.modal-card .back-link {
+    display: block;
+    flex: 1 1 auto;
+    margin: 0;
+    padding: 10px 15px;
+    background: var(--surface-alt);
+    color: var(--primary);
+    border-radius: 6px;
+    text-decoration: none;
+    text-align: center;
+    border: 1px solid var(--input-border);
+}
+
+/* prevent modal action row from wrapping oddly and make buttons equal */
+.modal-card form > div[style] {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+.modal-card form > div[style] button[type="submit"] {
+    flex: 1 1 auto;
+}
+
+.modal-card form > div[style] #modal-cancel {
+    flex: 1 1 auto;
+}
+
+/* theme selects and options for dark mode — best-effort (option styling limited by browser) */
+select, input[type="date"], input[type="number"], input[type="text"] {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--input-border);
+}
+
+select option {
+    background: var(--surface);
+    color: var(--text);
+}
+
+/* Mobile Responsive Design */
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+
+    h1 {
+        font-size: 1.5rem;
+        margin-bottom: 10px;
+    }
+
+    h2 {
+        font-size: 1.1rem;
+        margin-bottom: 10px;
+    }
+
+    th, td {
+        padding: 8px;
+        font-size: 0.85rem;
+    }
+
+    form {
+        padding: 15px;
+    }
+
+    .form-group {
+        margin-bottom: 12px;
+    }
+
+    input[type="text"],
+    input[type="date"],
+    input[type="number"],
+    select {
+        font-size: 16px;
+        padding: 12px;
+    }
+
+    button {
+        padding: 15px;
+        font-size: 16px;
+    }
+
+    .balance-amount {
+        font-size: 1.3rem;
+    }
+
+    .btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 8px;
+    }
+
+    h1 {
+        font-size: 1.3rem;
+        padding-bottom: 8px;
+    }
+
+    h2 {
+        font-size: 1rem;
+    }
+
+    th, td {
+        padding: 6px;
+        font-size: 0.8rem;
+    }
+
+    form {
+        padding: 12px;
+    }
+
+    input[type="text"],
+    input[type="date"],
+    input[type="number"],
+    select,
+    button {
+        font-size: 16px;
+        padding: 12px;
+    }
+
+    .balance-amount {
+        font-size: 1.2rem;
+    }
+
+    button {
+        margin-bottom: 8px;
+    }
+
+    hr {
+        margin: 15px 0;
+    }
+
+    /* Convert wide tables into stacked cards on very small screens */
+    .table-container table,
+    .table-container thead,
+    .table-container tbody,
+    .table-container th,
+    .table-container td,
+    .table-container tr {
+        display: block;
+    }
+
+    .table-container thead {
+        display: none;
+    }
+
+    .table-container tr {
+        margin-bottom: 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 10px;
+        background: var(--surface);
+        box-shadow: none;
+    }
+
+    .table-container td {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 6px;
+        border: none;
+        border-bottom: 1px solid var(--surface-alt);
+        font-size: 0.95rem;
+    }
+
+    .table-container td:last-child {
+        border-bottom: none;
+    }
+
+    .table-container td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--text);
+        margin-right: 8px;
+        flex: 0 0 45%;
+        white-space: nowrap;
+    }
+
+    /* Ensure long values wrap nicely */
+    .table-container td > * {
+        overflow-wrap: anywhere;
+    }
+}
