@@ -1,0 +1,19 @@
+body {
+    font-family: Arial;
+    margin: 40px;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+th, td {
+    border: 1px solid #ccc;
+    padding: 6px;
+}
+
+th {
+    background: #eee;
+}

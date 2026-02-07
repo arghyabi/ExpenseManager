@@ -1,0 +1,34 @@
+name: Version File Check
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  check-version-file:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2  # Fetch at least two commits to allow comparison with previous commit
+
+      - name: Check if config.yaml has been updated
+        run: |
+          if git diff --name-only HEAD^ HEAD | grep -q "config.yaml"; then
+            echo "config.yaml file has been modified."
+          else
+            echo "Error: config.yaml file is not updated."
+            exit 1
+          fi
+
+      - name: Check if AppVersion in config.yaml has been updated
+        run: |
+          VERSION_CHANGE=$(git diff HEAD^ HEAD config.yaml | grep 'AppVersion')
+          if [ -n "$VERSION_CHANGE" ]; then
+            echo "AppVersion in config.yaml has been updated."
+          else
+            echo "Error: AppVersion in config.yaml is not updated."
+            exit 1
+          fi

@@ -1,0 +1,5 @@
+database_schema.sql
+database_dump_full.sql
+database_dump_table.txt
+/*.sql
+*.db
