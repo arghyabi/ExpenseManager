@@ -36,7 +36,7 @@ $tx = $db->query("
 <html>
 <head>
     <title>Expense Manager</title>
-    <link rel="stylesheet" href="../resource/css/style.css">
+    <link rel="stylesheet" href="/resource/css/style.css">
 </head>
 <body>
 
