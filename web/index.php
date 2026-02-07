@@ -122,6 +122,19 @@ $accs = $db->query("SELECT * FROM accounts");
                 </select>
             </div>
             <div class="form-group">
+                <label for="m_account">Account</label>
+                <select id="m_account" name="account" required>
+                    <option value="">-- Select Account --</option>
+                    <?php
+                    // Reset accs result set for re-use
+                    $accsRes = $db->query("SELECT * FROM accounts");
+                    while($a = $accsRes->fetchArray(SQLITE3_ASSOC)) {
+                    ?>
+                        <option value="<?= $a['id'] ?>"><?= htmlspecialchars($a['name']) ?></option>
+                    <?php } ?>
+                </select>
+            </div>
+            <div class="form-group">
                 <label for="m_note">Note</label>
                 <input id="m_note" type="text" name="note" placeholder="Optional notes...">
             </div>
@@ -157,7 +170,7 @@ $accs = $db->query("SELECT * FROM accounts");
     <div class="card tx-card">
         <div class="tx-actions">
             <div class="tx-menu-container">
-                <button class="tx-menu-btn" data-id="<?= htmlspecialchars($r['id']) ?>" data-date="<?= htmlspecialchars($r['date']) ?>" data-type="<?= htmlspecialchars($r['type']) ?>" data-amount="<?= htmlspecialchars($r['amount']) ?>" data-category="<?= htmlspecialchars($r['category_id']) ?>" data-note="<?= htmlspecialchars($r['note']) ?>" data-desc="<?= htmlspecialchars($r['date'] . ' - ' . $r['category']) ?>">⋮</button>
+                <button class="tx-menu-btn" data-id="<?= htmlspecialchars($r['id']) ?>" data-date="<?= htmlspecialchars($r['date']) ?>" data-type="<?= htmlspecialchars($r['type']) ?>" data-amount="<?= htmlspecialchars($r['amount']) ?>" data-category="<?= htmlspecialchars($r['category_id']) ?>" data-account="<?= htmlspecialchars($r['account_id']) ?>" data-note="<?= htmlspecialchars($r['note']) ?>" data-desc="<?= htmlspecialchars($r['date'] . ' - ' . $r['category']) ?>">⋮</button>
                 <div class="tx-menu-dropdown">
                     <button class="tx-menu-item tx-edit-option">✏️ Edit</button>
                     <button class="tx-menu-item tx-delete-option">🗑️ Delete</button>
@@ -269,6 +282,7 @@ $accs = $db->query("SELECT * FROM accounts");
             const type = menuBtn.dataset.type;
             const amount = menuBtn.dataset.amount;
             const categoryId = menuBtn.dataset.category;
+            const accountId = menuBtn.dataset.account;
             const note = menuBtn.dataset.note;
 
             // Close dropdown
@@ -280,6 +294,7 @@ $accs = $db->query("SELECT * FROM accounts");
             document.getElementById('m_type').value = type;
             document.getElementById('m_amount').value = amount;
             document.getElementById('m_category').value = categoryId;
+            document.getElementById('m_account').value = accountId;
             document.getElementById('m_note').value = note;
 
             // Set action to edit
