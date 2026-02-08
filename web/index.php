@@ -65,6 +65,7 @@ $accs = $db->query("SELECT * FROM accounts");
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Expense Manager</title>
     <link rel="stylesheet" href="resource/css/style.css">
+    <link rel="icon" href="resource/images/icon.png">
 </head>
 <body>
 
