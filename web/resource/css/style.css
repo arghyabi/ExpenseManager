@@ -104,14 +104,103 @@ h2 {
     transform: scale(0.98);
 }
 
-a {
-    color: var(--primary);
-    text-decoration: none;
+/* Navigation breadcrumb */
+.nav-breadcrumb {
+    margin: 12px 0 15px 0;
+    font-size: 0.95rem;
+    color: var(--muted);
+    padding: 8px 0;
 }
 
-a:hover {
+.breadcrumb-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.breadcrumb-link:hover {
     text-decoration: underline;
 }
+
+.breadcrumb-sep {
+    margin: 0 6px;
+    color: var(--muted);
+}
+
+.breadcrumb-current {
+    font-weight: 600;
+    color: var(--text);
+}
+
+/* Section subtitle */
+.section-subtitle {
+    display: inline-block;
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-weight: normal;
+    margin-left: 8px;
+}
+
+/* Card actions buttons */
+.card-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.btn-small {
+    display: inline-block;
+    padding: 6px 12px;
+    background: var(--primary);
+    color: var(--on-primary);
+    border: none;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+    transition: background-color 200ms ease;
+    flex: 1 1 auto;
+    min-width: 60px;
+}
+
+.btn-small:hover {
+    background: var(--primary-strong);
+}
+
+.btn-small:active {
+    transform: scale(0.98);
+}
+
+.btn-danger {
+    background: var(--accent-expense);
+}
+
+.btn-danger:hover {
+    background: #c0392b;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    color: var(--muted);
+    padding: 30px;
+    font-style: italic;
+}
+
+.empty-state a {
+    font-weight: 600;
+}
+
+/* Transaction wallet info */
+.tx-wallet {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 2px;
+}
+
 
 /* Table Responsive Styling */
 .table-container {
@@ -241,7 +330,26 @@ hr {
     margin: 20px 0;
 }
 
-/* Grid and Card styles for table replacement */
+/* Grid systems for different card types */
+
+/* Transaction grid - one per row */
+.tx-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+/* Monthly summary grid - multiple columns */
+.monthly-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+/* Generic grid fallback */
 .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -249,67 +357,69 @@ hr {
     margin-bottom: 20px;
 }
 
-.card {
-    background: var(--surface);
-    padding: 12px;
-    border-radius: 8px;
-    box-shadow: var(--card-shadow);
-    border: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-}
-
-.card-header {
-    font-weight: 700;
-    color: var(--text);
-    margin-bottom: 8px;
-}
-
-.card-body .card-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 6px 0;
-    border-bottom: 1px dashed var(--surface-alt);
-}
-
-.card-body .card-row:last-child {
-    border-bottom: none;
-}
-
-.label {
-    color: var(--muted);
-    font-weight: 600;
-}
-
-.value {
-    font-weight: 700;
-}
-
 /* Transaction card specifics */
-.tx-card .tx-row {
+.tx-card {
+    padding: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0;
+    width: 100% !important;
+    overflow: visible !important;
+}
+
+.tx-container {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+    gap: 12px;
+    overflow: visible;
 }
 
-.tx-left {
+.tx-left-section {
     flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
-.tx-right {
+.tx-title {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text);
+    margin-bottom: 4px;
+}
+
+.tx-date {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.tx-note {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 2px;
+}
+
+.tx-right-section {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
     gap: 6px;
-    margin-left: 12px;
+    flex-shrink: 0;
+    overflow: visible;
 }
 
 .type-badge {
-    padding: 6px 10px;
-    border-radius: 16px;
+    padding: 4px 10px;
+    border-radius: 14px;
     color: white;
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
 }
 
 .type-badge.income {
@@ -322,12 +432,16 @@ hr {
 
 .tx-amount {
     font-weight: 800;
+    font-size: 1.05rem;
+    color: var(--text);
 }
 
 .tx-meta {
-    margin-top: 8px;
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
 .meta-sep {
@@ -335,31 +449,29 @@ hr {
 }
 
 /* Transaction card actions */
-.tx-actions {
-    display: flex;
-    gap: 6px;
-    justify-content: flex-end;
-    margin-bottom: 12px;
-}
-
 .tx-menu-container {
     position: relative;
+    flex-shrink: 0;
+    overflow: visible;
 }
 
 .tx-menu-btn {
     background: transparent;
     border: none;
     border-radius: 6px;
-    padding: 6px 8px;
+    padding: 4px 6px;
     cursor: pointer;
-    font-size: 18px;
+    font-size: 16px;
     transition: background-color 200ms ease, color 200ms ease;
     color: var(--text);
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 32px;
-    min-height: 32px;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+    flex-shrink: 0;
 }
 
 .tx-menu-btn:hover {
@@ -415,6 +527,281 @@ hr {
 .tx-menu-item.tx-delete-option:hover {
     color: #ff4444;
     background: rgba(255, 68, 68, 0.15);
+}
+
+/* Card Layout System */
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--card-shadow);
+    padding: 0;
+    overflow: hidden;
+    transition: box-shadow 200ms ease, transform 200ms ease;
+}
+
+.wallet-card {
+    overflow: visible !important;
+    background: #e8f4fd !important;
+    border-color: #b3d9f2 !important;
+    border-radius: 8px !important;
+}
+
+.wallet-card .card-menu-container {
+    overflow: visible !important;
+}
+
+.wallet-card .card-row .label {
+    color: #1a5a7a !important;
+}
+
+.wallet-card .card-row .value {
+    color: #0d3a52 !important;
+}
+
+.dark-theme .wallet-card {
+    background: #1a3a4a !important;
+    border-color: #2d5a7a !important;
+}
+
+.dark-theme .wallet-card .card-row .label {
+    color: #5fb3d5 !important;
+}
+
+.dark-theme .wallet-card .card-row .value {
+    color: #a3d8f0 !important;
+}
+
+.bank-card {
+    background: #e8f5e9 !important;
+    border-color: #c8e6c9 !important;
+}
+
+.bank-card .card-row .label {
+    color: #1b5e20 !important;
+}
+
+.bank-card .card-row .value {
+    color: #0d3817 !important;
+}
+
+.dark-theme .bank-card {
+    background: #1a3a27 !important;
+    border-color: #2d5a3d !important;
+}
+
+.dark-theme .bank-card .card-row .label {
+    color: #7fb384 !important;
+}
+
+.dark-theme .bank-card .card-row .value {
+    color: #a8d9a8 !important;
+}
+
+.wallet-card .card-body.card-clickable:hover {
+    background: #e8f4fd !important;
+}
+
+.bank-card .card-body.card-clickable:hover {
+    background: #e8f5e9 !important;
+}
+
+.dark-theme .wallet-card .card-body.card-clickable:hover {
+    background: #1a3a4a !important;
+}
+
+.dark-theme .bank-card .card-body.card-clickable:hover {
+    background: #1a3a27 !important;
+}
+
+.month-card {
+    cursor: pointer;
+    transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.month-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+}
+
+.month-card .card-header strong {
+    color: var(--text) !important;
+    font-weight: 700 !important;
+}
+
+.dark-theme .month-card .card-header strong {
+    color: #ffffff !important;
+}
+
+h2 a {
+    color: var(--primary) !important;
+    transition: color 200ms ease;
+    text-decoration: none;
+}
+
+h2 a:hover {
+    color: var(--primary-strong) !important;
+    text-decoration: underline;
+}
+
+.dark-theme h2 a {
+    color: #4db8ff !important;
+}
+
+.dark-theme h2 a:hover {
+    color: #79d9ff !important;
+}
+
+a {
+    color: var(--primary);
+}
+
+.dark-theme a {
+    color: #4db8ff;
+}
+
+.card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-alt);
+}
+
+.card-header strong {
+    color: var(--text);
+    font-size: 1rem;
+    margin: 0;
+}
+
+.card-body {
+    padding: 12px 16px;
+}
+
+.card-body.card-clickable {
+    cursor: pointer;
+    transition: background-color 200ms ease;
+}
+
+.card-body.card-clickable:hover {
+    background: var(--surface-hover);
+}
+
+.card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 0.95rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.card-row:last-child {
+    border-bottom: none;
+}
+
+.card-row .label {
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.card-row .value {
+    color: var(--text);
+    font-weight: 600;
+}
+
+/* Card 3-dot Menu */
+.card-menu-container {
+    position: relative;
+    overflow: visible;
+}
+
+.card-menu-btn {
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 6px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 200ms ease, color 200ms ease;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+}
+
+.card-menu-btn:hover {
+    background: var(--input-border);
+}
+
+.card-menu-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--card-shadow);
+    display: none;
+    flex-direction: column;
+    z-index: 1000;
+    min-width: 140px;
+    margin-top: 4px;
+}
+
+.card-menu-dropdown.open {
+    display: flex;
+}
+
+.card-menu-item {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    padding: 10px 16px;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 200ms ease, color 200ms ease;
+    font-size: 14px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+}
+
+.card-menu-item:first-child {
+    border-radius: 8px 8px 0 0;
+}
+
+.card-menu-item:last-child {
+    border-radius: 0 0 8px 8px;
+}
+
+.card-menu-item:hover {
+    background: var(--surface-hover);
+}
+
+.card-menu-item.card-delete-danger:hover {
+    color: #ff4444;
+    background: rgba(255, 68, 68, 0.15);
+}
+
+/* Grid layout for cards */
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
 }
 
 /* Pagination UI */
@@ -521,6 +908,22 @@ hr {
     align-items: center;
     justify-content: center;
     border-radius: 6px;
+}
+
+/* Small close buttons for wallet and bank modals */
+#wallet-modal-close,
+#bank-modal-close {
+    padding: 2px 4px !important;
+    font-size: 14px !important;
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    border: 1px solid var(--input-border);
 }
 
 .modal-card form { max-width: 100%; }
