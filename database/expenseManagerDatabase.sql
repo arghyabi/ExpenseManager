@@ -1,63 +1,69 @@
+-- ========================================
+-- Expense Manager - Consolidated Database Schema
+-- Merged from: expenseManagerDatabase.sql, dataEntry.sql, update_001.sql, update_002.sql
+-- Cleaned up: Removed unused tables (monthly_budget, categories), removed old migrations
+-- ========================================
+
 PRAGMA foreign_keys = ON;
 
--- =============================
--- Categories
--- =============================
-CREATE TABLE categories (
+-- ======================================
+-- Banks Table
+-- ======================================
+CREATE TABLE IF NOT EXISTS banks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     description TEXT
 );
 
--- ===================================
--- Accounts table
--- ===================================
-CREATE TABLE accounts (
+-- ======================================
+-- Wallets Table (migrated from categories)
+-- ======================================
+CREATE TABLE IF NOT EXISTS wallets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    bank_id INTEGER,
+    FOREIGN KEY(bank_id) REFERENCES banks(id)
+);
+
+-- ======================================
+-- Accounts Table
+-- ======================================
+CREATE TABLE IF NOT EXISTS accounts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     description TEXT
 );
 
--- ===================================
--- Monthly budget table
--- ===================================
-CREATE TABLE monthly_budget (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    year INTEGER NOT NULL,
-    month INTEGER NOT NULL,
-    amount REAL NOT NULL,
-    UNIQUE(year, month)
-);
-
--- =============================
--- Transactions
--- =============================
-CREATE TABLE transactions (
+-- ======================================
+-- Transactions Table
+-- ======================================
+CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     date TEXT NOT NULL,
+    title TEXT DEFAULT '',
     type TEXT NOT NULL CHECK(type IN ('income','expense')),
     amount REAL NOT NULL CHECK(amount >= 0),
     payment_mode TEXT DEFAULT 'cash',
-    category_id INTEGER,
+    wallet_id INTEGER,
     note TEXT,
     account_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(category_id) REFERENCES categories(id)
+    FOREIGN KEY(wallet_id) REFERENCES wallets(id),
+    FOREIGN KEY(account_id) REFERENCES accounts(id)
 );
 
-CREATE INDEX idx_transactions_date ON transactions(date);
-CREATE INDEX idx_transactions_category ON transactions(category_id);
+-- ======================================
+-- Indexes for Performance
+-- ======================================
+CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
+CREATE INDEX IF NOT EXISTS idx_transactions_wallet ON transactions(wallet_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions(account_id);
 
-
--- ===================================
--- Create reporting VIEW (very useful)
--- ===================================
-CREATE VIEW monthly_summary AS
-SELECT
-    strftime('%Y', date) AS year,
-    strftime('%m', date) AS month,
-    SUM(CASE WHEN type='income' THEN amount ELSE 0 END) AS income,
-    SUM(CASE WHEN type='expense' THEN amount ELSE 0 END) AS expense,
-    SUM(CASE WHEN type='income' THEN amount ELSE -amount END) AS net
-FROM transactions
-GROUP BY year, month;
+-- ======================================
+-- Default Data
+-- ======================================
+INSERT OR IGNORE INTO accounts(name) VALUES
+('Cash'),
+('UPI'),
+('Bank');

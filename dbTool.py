@@ -7,7 +7,7 @@ from datetime import datetime
 
 MASTER_SQL = "expenseManagerDatabase.sql"
 DATA_ENTRY_SQL = "dataEntry.sql"
-PRIMARY_SQLS = [MASTER_SQL, DATA_ENTRY_SQL]
+PRIMARY_SQLS = [MASTER_SQL]
 DB_FILE = "expenseManagerDatabase.db"
 MIGRATIONS_DIR = "database"
 
@@ -25,7 +25,7 @@ def connect():
 
 
 def get_sql_files():
-    sqls = sorted(f for f in os.listdir(MIGRATIONS_DIR) 
+    sqls = sorted(f for f in os.listdir(MIGRATIONS_DIR)
                     if f.endswith(".sql") and f not in PRIMARY_SQLS)
     return sqls
 
