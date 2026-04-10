@@ -4,3 +4,6 @@ database_dump_table.txt
 /*.sql
 *.db
 *.service
+/vendor/
+/web/vendor/
+composer.lock

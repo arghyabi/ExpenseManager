@@ -105,12 +105,6 @@
             const bankId = btn.dataset.id;
             const bankName = btn.dataset.name;
 
-            const dependentWallets = document.querySelectorAll('[data-bank-id="' + bankId + '"]').length;
-            if (dependentWallets > 0) {
-                alert('Cannot delete bank "' + bankName + '". It has dependent wallets. Please delete or reassign them first.');
-                return;
-            }
-
             if (confirm('Delete bank "' + bankName + '"?')) {
                 const delForm = document.createElement('form');
                 delForm.method = 'POST';

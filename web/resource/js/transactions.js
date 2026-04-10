@@ -19,6 +19,7 @@
             const accountId = menuBtn.dataset.account;
             const note = menuBtn.dataset.note;
             const title = menuBtn.dataset.title;
+            const paymentMethod = menuBtn.dataset.paymentMethod || '';
 
             // Close dropdown
             e.target.closest('.tx-menu-dropdown').classList.remove('open');
@@ -30,6 +31,17 @@
             document.getElementById('m_type').value = type;
             document.getElementById('m_amount').value = amount;
 
+            // Update payment method label based on type
+            const methodLabel = document.getElementById('payment-method-label');
+            const methodHint = document.getElementById('payment-method-hint');
+            if (type === 'income') {
+                methodLabel.textContent = 'To:';
+                methodHint.textContent = 'Where the payment will be received';
+            } else {
+                methodLabel.textContent = 'From:';
+                methodHint.textContent = 'Where the payment will be deducted from';
+            }
+
             // Set wallet (if the dropdown exists)
             const walletField = document.getElementById('m_wallet');
             if (walletField) {
@@ -38,6 +50,7 @@
 
             document.getElementById('m_account').value = accountId;
             document.getElementById('m_note').value = note;
+            document.getElementById('m_payment_method').value = paymentMethod;
 
             // Set action to edit
             actionInput.value = 'tx_edit';
@@ -86,6 +99,7 @@
                 const urlParams = new URLSearchParams(window.location.search);
                 const view = urlParams.get('view');
                 const contextId = urlParams.get('id');
+                const budgetMonth = urlParams.get('budget_month');
 
                 if (view === 'wallet' && contextId) {
                     const walletInput = document.createElement('input');
@@ -93,6 +107,15 @@
                     walletInput.name = 'wallet_id';
                     walletInput.value = contextId;
                     delForm.appendChild(walletInput);
+
+                    // Preserve budget_month if present
+                    if (budgetMonth) {
+                        const monthInput = document.createElement('input');
+                        monthInput.type = 'hidden';
+                        monthInput.name = 'budget_month';
+                        monthInput.value = budgetMonth;
+                        delForm.appendChild(monthInput);
+                    }
                 } else if (view === 'bank' && contextId) {
                     const bankInput = document.createElement('input');
                     bankInput.type = 'hidden';
@@ -113,22 +136,53 @@
         if (menuBtn) {
             e.stopPropagation();
             const dropdown = menuBtn.nextElementSibling;
+            const card = menuBtn.closest('.tx-card');
             const allDropdowns = document.querySelectorAll('.tx-menu-dropdown');
+            const allCards = document.querySelectorAll('.tx-card');
 
-            // Close all other dropdowns
+            // Close all other dropdowns and reset their card z-index
             allDropdowns.forEach(d => {
-                if (d !== dropdown) d.classList.remove('open');
+                if (d !== dropdown) {
+                    d.classList.remove('open');
+                    d.closest('.tx-card').style.zIndex = '';
+                }
             });
 
             // Toggle current dropdown
             dropdown.classList.toggle('open');
+
+            // Adjust z-index of current card
+            if (dropdown.classList.contains('open')) {
+                card.style.zIndex = '1000';
+            } else {
+                card.style.zIndex = '';
+            }
         }
     });
 
     // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.tx-menu-container')) {
-            document.querySelectorAll('.tx-menu-dropdown').forEach(d => d.classList.remove('open'));
+            document.querySelectorAll('.tx-menu-dropdown').forEach(d => {
+                d.classList.remove('open');
+                d.closest('.tx-card').style.zIndex = '';
+            });
         }
     });
+
+    // Update payment method label when transaction type changes
+    const typeField = document.getElementById('m_type');
+    if (typeField) {
+        typeField.addEventListener('change', function() {
+            const methodLabel = document.getElementById('payment-method-label');
+            const methodHint = document.getElementById('payment-method-hint');
+            if (this.value === 'income') {
+                methodLabel.textContent = 'To:';
+                methodHint.textContent = 'Where the payment will be received';
+            } else {
+                methodLabel.textContent = 'From:';
+                methodHint.textContent = 'Where the payment will be deducted from';
+            }
+        });
+    }
 })();
