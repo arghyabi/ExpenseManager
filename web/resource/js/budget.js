@@ -7,6 +7,67 @@
     const budgetForm = document.getElementById('budget-form');
     const budgetTitle = document.getElementById('budget-modal-title');
     const budgetActionInput = document.getElementById('budget-action');
+    const budgetMonthSelect = document.getElementById('budget-month-select');
+    const budgetYearSelect = document.getElementById('budget-year-select');
+
+    // Populate month dropdown
+    function populateMonthDropdown() {
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                           'July', 'August', 'September', 'October', 'November', 'December'];
+
+        budgetMonthSelect.innerHTML = '<option value="">-- Select --</option>';
+
+        monthNames.forEach((month, index) => {
+            const option = document.createElement('option');
+            option.value = String(index + 1).padStart(2, '0');
+            option.textContent = month;
+            budgetMonthSelect.appendChild(option);
+        });
+    }
+
+    // Populate year dropdown (10 years back to 10 years forward)
+    function populateYearDropdown() {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+
+        budgetYearSelect.innerHTML = '<option value="">-- Select --</option>';
+
+        // Add years from 10 years back to 10 years forward
+        for (let year = currentYear - 10; year <= currentYear + 10; year++) {
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            budgetYearSelect.appendChild(option);
+        }
+    }
+
+    // Update hidden fields when month or year changes
+    function updateBudgetDate() {
+        const year = budgetYearSelect.value;
+        const month = budgetMonthSelect.value;
+
+        if (year && month) {
+            document.getElementById('budget-year').value = year;
+            document.getElementById('budget-month').value = month;
+            document.getElementById('budget-month-param').value = year + '-' + month;
+        }
+    }
+
+    // Populate dropdowns on page load
+    if (budgetMonthSelect && budgetMonthSelect.options.length === 1) {
+        populateMonthDropdown();
+    }
+    if (budgetYearSelect && budgetYearSelect.options.length === 1) {
+        populateYearDropdown();
+    }
+
+    // Handle month/year selection
+    if (budgetMonthSelect) {
+        budgetMonthSelect.addEventListener('change', updateBudgetDate);
+    }
+    if (budgetYearSelect) {
+        budgetYearSelect.addEventListener('change', updateBudgetDate);
+    }
 
     window.openBudgetModal = function(mode = 'add', budgetId = null, walletId = null, year = null, month = null, expectedIncome = 0, expectedExpense = 0, notes = '') {
         if (!budgetModal) return;
@@ -16,24 +77,27 @@
         year = year || now.getFullYear();
         month = month || (now.getMonth() + 1);
 
-        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                           'July', 'August', 'September', 'October', 'November', 'December'];
+        const monthPadded = String(month).padStart(2, '0');
+        const monthValue = year + '-' + monthPadded;
 
         document.getElementById('budget-id').value = budgetId || '';
         document.getElementById('budget-wallet-id').value = walletId || '';
         document.getElementById('budget-year').value = year;
         document.getElementById('budget-month').value = month;
-        // Set budget_month parameter for redirect (YYYY-MM format)
-        const monthPadded = String(month).padStart(2, '0');
-        document.getElementById('budget-month-param').value = year + '-' + monthPadded;
+        document.getElementById('budget-month-param').value = monthValue;
+
+        // Set the dropdowns to selected month/year
+        if (budgetYearSelect) {
+            budgetYearSelect.value = year;
+        }
+        if (budgetMonthSelect) {
+            budgetMonthSelect.value = monthPadded;
+        }
+
         // Only populate if non-zero, otherwise leave blank for optional field
         document.getElementById('budget-expected-income').value = expectedIncome && expectedIncome > 0 ? expectedIncome : '';
         document.getElementById('budget-expected-expense').value = expectedExpense || 0;
         document.getElementById('budget-notes').value = notes || '';
-
-        // Display month/year
-        const monthDisplay = document.getElementById('budget-month-display');
-        monthDisplay.textContent = monthNames[month - 1] + ' ' + year;
 
         budgetActionInput.value = mode === 'add' ? 'budget_add' : 'budget_edit';
         budgetTitle.textContent = mode === 'add' ? 'Set Budget' : 'Edit Budget';
