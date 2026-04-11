@@ -82,6 +82,7 @@ class Queries {
                 w.name,
                 w.bank_id,
                 w.description,
+                w.wallet_type,
                 COALESCE(b.name, 'Unknown') as bank_name,
                 IFNULL(SUM(
                     CASE WHEN t.type='income' THEN t.amount ELSE -t.amount END
@@ -89,8 +90,8 @@ class Queries {
             FROM wallets w
             LEFT JOIN banks b ON w.bank_id = b.id
             LEFT JOIN transactions t ON w.id = t.wallet_id
-            GROUP BY w.id, w.name, w.bank_id, w.description, b.name
-            ORDER BY w.name ASC"
+            GROUP BY w.id, w.name, w.bank_id, w.description, w.wallet_type, b.name
+            ORDER BY w.wallet_type ASC, w.name ASC"
         );
     }
 
@@ -113,33 +114,53 @@ class Queries {
                 w.name,
                 w.bank_id,
                 w.description,
+                w.wallet_type,
                 IFNULL(SUM(
                     CASE WHEN t.type='income' THEN t.amount ELSE -t.amount END
                 ), 0) as balance
             FROM wallets w
             LEFT JOIN transactions t ON w.id = t.wallet_id
             WHERE w.bank_id = ?
-            GROUP BY w.id, w.name, w.bank_id, w.description
+            GROUP BY w.id, w.name, w.bank_id, w.description, w.wallet_type
             ORDER BY w.name ASC"
         );
         $stmt->bindValue(1, $bank_id, SQLITE3_INTEGER);
         return $stmt->execute();
     }
 
-    public function addWallet($name, $bank_id, $description = '') {
-        $stmt = $this->db->prepare("INSERT INTO wallets (name, bank_id, description) VALUES (?, ?, ?)");
+    public function detectWalletType($wallet_id) {
+        // Check if wallet has ANY income transactions
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*) as income_count FROM transactions WHERE wallet_id = ? AND type = 'income'"
+        );
+        $stmt->bindValue(1, $wallet_id, SQLITE3_INTEGER);
+        $result = $stmt->execute()->fetchArray(SQLITE3_ASSOC);
+
+        // If has income transactions → 'balance' wallet
+        // If only expenses → 'budget' wallet
+        return $result['income_count'] > 0 ? 'balance' : 'budget';
+    }
+
+    public function addWallet($name, $bank_id, $description = '', $wallet_type = 'balance') {
+        $stmt = $this->db->prepare("INSERT INTO wallets (name, bank_id, description, wallet_type) VALUES (?, ?, ?, ?)");
         $stmt->bindValue(1, $name, SQLITE3_TEXT);
         $stmt->bindValue(2, $bank_id, SQLITE3_INTEGER);
         $stmt->bindValue(3, $description, SQLITE3_TEXT);
+        $stmt->bindValue(4, $wallet_type, SQLITE3_TEXT);
         return $stmt->execute() ? $this->db->lastInsertRowid() : false;
     }
 
-    public function editWallet($wallet_id, $name, $bank_id, $description = '') {
-        $stmt = $this->db->prepare("UPDATE wallets SET name = ?, bank_id = ?, description = ? WHERE id = ?");
+    public function editWallet($wallet_id, $name, $bank_id, $description = '', $wallet_type = null) {
+        // If wallet_type is not provided, auto-detect it
+        if ($wallet_type === null) {
+            $wallet_type = $this->detectWalletType($wallet_id);
+        }
+        $stmt = $this->db->prepare("UPDATE wallets SET name = ?, bank_id = ?, description = ?, wallet_type = ? WHERE id = ?");
         $stmt->bindValue(1, $name, SQLITE3_TEXT);
         $stmt->bindValue(2, $bank_id, SQLITE3_INTEGER);
         $stmt->bindValue(3, $description, SQLITE3_TEXT);
-        $stmt->bindValue(4, $wallet_id, SQLITE3_INTEGER);
+        $stmt->bindValue(4, $wallet_type, SQLITE3_TEXT);
+        $stmt->bindValue(5, $wallet_id, SQLITE3_INTEGER);
         return $stmt->execute();
     }
 
@@ -325,10 +346,10 @@ class Queries {
     // TRANSACTION QUERIES - GLOBAL
     // ====================================================
 
-    public function addTransaction($date, $type, $amount, $wallet_id, $account_id, $note = '', $title = '') {
+    public function addTransaction($date, $type, $amount, $wallet_id, $account_id, $note = '', $title = '', $payment_method = '') {
         $stmt = $this->db->prepare(
-            "INSERT INTO transactions (date, type, amount, wallet_id, account_id, note, title, payment_mode)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'cash')"
+            "INSERT INTO transactions (date, type, amount, wallet_id, account_id, note, title, payment_mode, payment_method)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'cash', ?)"
         );
         $stmt->bindValue(1, $date, SQLITE3_TEXT);
         $stmt->bindValue(2, $type, SQLITE3_TEXT);
@@ -337,13 +358,14 @@ class Queries {
         $stmt->bindValue(5, $account_id, SQLITE3_INTEGER);
         $stmt->bindValue(6, $note, SQLITE3_TEXT);
         $stmt->bindValue(7, $title, SQLITE3_TEXT);
+        $stmt->bindValue(8, $payment_method, SQLITE3_TEXT);
         return $stmt->execute() ? $this->db->lastInsertRowid() : false;
     }
 
-    public function editTransaction($tx_id, $date, $type, $amount, $wallet_id, $account_id, $note = '', $title = '') {
+    public function editTransaction($tx_id, $date, $type, $amount, $wallet_id, $account_id, $note = '', $title = '', $payment_method = '') {
         $stmt = $this->db->prepare(
             "UPDATE transactions
-             SET date=?, type=?, amount=?, wallet_id=?, account_id=?, note=?, title=?
+             SET date=?, type=?, amount=?, wallet_id=?, account_id=?, note=?, title=?, payment_method=?
              WHERE id=?"
         );
         $stmt->bindValue(1, $date, SQLITE3_TEXT);
@@ -353,7 +375,8 @@ class Queries {
         $stmt->bindValue(5, $account_id, SQLITE3_INTEGER);
         $stmt->bindValue(6, $note, SQLITE3_TEXT);
         $stmt->bindValue(7, $title, SQLITE3_TEXT);
-        $stmt->bindValue(8, $tx_id, SQLITE3_INTEGER);
+        $stmt->bindValue(8, $payment_method, SQLITE3_TEXT);
+        $stmt->bindValue(9, $tx_id, SQLITE3_INTEGER);
         return $stmt->execute();
     }
 
@@ -367,6 +390,124 @@ class Queries {
         $stmt = $this->db->prepare("SELECT * FROM transactions WHERE id = ?");
         $stmt->bindValue(1, $tx_id, SQLITE3_INTEGER);
         return $stmt->execute()->fetchArray(SQLITE3_ASSOC);
+    }
+
+    public function getWalletSummaryByBankPaymentMethod($bank_id) {
+        // Get bank name first
+        $bankStmt = $this->db->prepare("SELECT name FROM banks WHERE id = ?");
+        $bankStmt->bindValue(1, $bank_id, SQLITE3_INTEGER);
+        $bankRow = $bankStmt->execute()->fetchArray(SQLITE3_ASSOC);
+
+        if (!$bankRow) {
+            return null;
+        }
+
+        $bankName = $bankRow['name'];
+
+        // Get wallet summaries for transactions with this bank's payment method
+        $stmt = $this->db->prepare(
+            "SELECT
+                w.id,
+                w.name,
+                w.description,
+                w.wallet_type,
+                IFNULL(SUM(CASE WHEN t.type='income' THEN t.amount ELSE 0 END), 0) as total_income,
+                IFNULL(SUM(CASE WHEN t.type='expense' THEN t.amount ELSE 0 END), 0) as total_expense
+            FROM transactions t
+            JOIN wallets w ON t.wallet_id = w.id
+            WHERE t.payment_method = ?
+            GROUP BY w.id, w.name, w.description, w.wallet_type
+            ORDER BY w.name ASC"
+        );
+        $stmt->bindValue(1, $bankName, SQLITE3_TEXT);
+        return $stmt->execute();
+    }
+
+    // ====================================================
+    // PAYMENT METHOD QUERIES
+    // ===================================================
+
+    public function getAllPaymentMethods() {
+        // Get all distinct payment methods from transactions, sorted
+        $stmt = $this->db->prepare(
+            "SELECT DISTINCT payment_method FROM transactions
+             WHERE payment_method IS NOT NULL AND payment_method != ''
+             ORDER BY payment_method ASC"
+        );
+        return $stmt->execute();
+    }
+
+    public function updateTransactionPaymentMethod($tx_id, $payment_method) {
+        $stmt = $this->db->prepare("UPDATE transactions SET payment_method = ? WHERE id = ?");
+        $stmt->bindValue(1, $payment_method, SQLITE3_TEXT);
+        $stmt->bindValue(2, $tx_id, SQLITE3_INTEGER);
+        return $stmt->execute();
+    }
+
+    // ====================================================
+    // BUDGET QUERIES
+    // ====================================================
+
+    public function getBudgetByWalletMonth($wallet_id, $year, $month) {
+        $monthStr = str_pad($month, 2, '0', STR_PAD_LEFT);
+        $dateStr = "$year-$monthStr";
+
+        $stmt = $this->db->prepare("SELECT * FROM budget WHERE wallet_id = ? AND month = ?");
+        $stmt->bindValue(1, $wallet_id, SQLITE3_INTEGER);
+        $stmt->bindValue(2, $dateStr, SQLITE3_TEXT);
+        return $stmt->execute()->fetchArray(SQLITE3_ASSOC);
+    }
+
+    public function addBudget($wallet_id, $year, $month, $expected_income = 0, $expected_expense = 0, $notes = '') {
+        $monthStr = str_pad($month, 2, '0', STR_PAD_LEFT);
+        $dateStr = "$year-$monthStr";
+
+        $stmt = $this->db->prepare(
+            "INSERT OR REPLACE INTO budget (wallet_id, month, expected_income, expected_expense, notes, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+        );
+        $stmt->bindValue(1, $wallet_id, SQLITE3_INTEGER);
+        $stmt->bindValue(2, $dateStr, SQLITE3_TEXT);
+        $stmt->bindValue(3, $expected_income, SQLITE3_FLOAT);
+        $stmt->bindValue(4, $expected_expense, SQLITE3_FLOAT);
+        $stmt->bindValue(5, $notes, SQLITE3_TEXT);
+        return $stmt->execute();
+    }
+
+    public function editBudget($budget_id, $expected_income, $expected_expense, $notes = '') {
+        $stmt = $this->db->prepare(
+            "UPDATE budget SET expected_income = ?, expected_expense = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        );
+        $stmt->bindValue(1, $expected_income, SQLITE3_FLOAT);
+        $stmt->bindValue(2, $expected_expense, SQLITE3_FLOAT);
+        $stmt->bindValue(3, $notes, SQLITE3_TEXT);
+        $stmt->bindValue(4, $budget_id, SQLITE3_INTEGER);
+        return $stmt->execute();
+    }
+
+    public function deleteBudget($budget_id) {
+        $stmt = $this->db->prepare("DELETE FROM budget WHERE id = ?");
+        $stmt->bindValue(1, $budget_id, SQLITE3_INTEGER);
+        return $stmt->execute();
+    }
+
+    public function getAllWalletBudgets($wallet_id) {
+        $stmt = $this->db->prepare(
+            "SELECT * FROM budget WHERE wallet_id = ? ORDER BY month DESC"
+        );
+        $stmt->bindValue(1, $wallet_id, SQLITE3_INTEGER);
+        return $stmt->execute();
+    }
+
+    public function getBillBankBudgets($bank_id) {
+        $stmt = $this->db->prepare(
+            "SELECT b.*, w.name as wallet_name FROM budget b
+             LEFT JOIN wallets w ON b.wallet_id = w.id
+             WHERE w.bank_id = ?
+             ORDER BY b.month DESC"
+        );
+        $stmt->bindValue(1, $bank_id, SQLITE3_INTEGER);
+        return $stmt->execute();
     }
 }
 
