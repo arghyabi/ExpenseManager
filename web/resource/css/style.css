@@ -1356,6 +1356,11 @@ a {
     flex-direction: column;
     gap: 8px;
     width: 100%;
+    background: transparent;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    margin: 0;
 }
 
 .modal-card .form-group {
@@ -2032,6 +2037,66 @@ select option {
     .month-card .card-header {
         font-size: 0.85rem;
     }
+
+    /* Keep transaction modal fully visible on small phones without internal scroll */
+    #modal-overlay {
+        align-items: flex-start;
+        padding: 8px;
+    }
+
+    #modal-overlay .modal-card {
+        width: 100%;
+        max-width: none;
+        padding: 10px;
+        border-radius: 10px;
+    }
+
+    #modal-overlay .modal-header {
+        margin-bottom: 6px;
+    }
+
+    #modal-overlay #modal-title {
+        margin: 0;
+        font-size: 1rem;
+    }
+
+    #tx-form .form-group {
+        margin-bottom: 8px;
+        gap: 4px;
+    }
+
+    #tx-form .form-group label {
+        font-size: 0.86rem;
+        margin-bottom: 2px;
+    }
+
+    #tx-form input[type="text"],
+    #tx-form input[type="date"],
+    #tx-form input[type="number"],
+    #tx-form select {
+        min-height: 40px;
+        padding: 9px 10px;
+        font-size: 15px;
+    }
+
+    #tx-form small {
+        display: none;
+    }
+
+    #tx-form > div[style] {
+        flex-direction: row !important;
+        gap: 8px !important;
+        margin-top: 6px;
+        padding-top: 8px;
+    }
+
+    #tx-form > div[style] button,
+    #tx-form > div[style] .back-link {
+        min-height: 40px;
+        padding: 9px 10px;
+        font-size: 0.9rem;
+    }
+
     div[style*="display: flex"] {
         flex-direction: column !important;
         gap: 8px !important;

@@ -9,6 +9,72 @@
     const budgetActionInput = document.getElementById('budget-action');
     const budgetMonthSelect = document.getElementById('budget-month-select');
     const budgetYearSelect = document.getElementById('budget-year-select');
+    const budgetIdInput = document.getElementById('budget-id');
+    const budgetWalletIdInput = document.getElementById('budget-wallet-id');
+    const expectedIncomeInput = document.getElementById('budget-expected-income');
+    const expectedExpenseInput = document.getElementById('budget-expected-expense');
+    const notesInput = document.getElementById('budget-notes');
+
+    let modalBaseMode = 'add';
+    let modalBaseBudgetId = '';
+
+    function setBudgetModalMode(mode) {
+        budgetActionInput.value = mode === 'add' ? 'budget_add' : 'budget_edit';
+        budgetTitle.textContent = mode === 'add' ? 'Set Budget' : 'Edit Budget';
+    }
+
+    function applyBudgetDataToForm(data) {
+        budgetIdInput.value = data.id || '';
+        expectedIncomeInput.value = data.expected_income && data.expected_income > 0 ? data.expected_income : '';
+        expectedExpenseInput.value = data.expected_expense || 0;
+        notesInput.value = data.notes || '';
+    }
+
+    function clearBudgetValueFields() {
+        expectedIncomeInput.value = '';
+        expectedExpenseInput.value = 0;
+        notesInput.value = '';
+    }
+
+    function loadBudgetForSelectedMonth() {
+        const walletId = budgetWalletIdInput.value;
+        const year = budgetYearSelect.value;
+        const month = budgetMonthSelect.value;
+
+        if (!walletId || !year || !month) {
+            return;
+        }
+
+        const query = new URLSearchParams({
+            action: 'get_budget_for_month',
+            wallet_id: walletId,
+            year: year,
+            month: String(parseInt(month, 10))
+        });
+
+        fetch('backend.php?' + query.toString())
+            .then((r) => r.json())
+            .then((data) => {
+                if (data && data.exists) {
+                    applyBudgetDataToForm(data);
+                    setBudgetModalMode('edit');
+                    return;
+                }
+
+                if (modalBaseMode === 'add') {
+                    budgetIdInput.value = '';
+                    setBudgetModalMode('add');
+                    clearBudgetValueFields();
+                } else {
+                    // Stay in edit mode for original record when target month has no existing budget.
+                    budgetIdInput.value = modalBaseBudgetId || budgetIdInput.value;
+                    setBudgetModalMode('edit');
+                }
+            })
+            .catch(() => {
+                // Keep existing values if lookup fails; user can still submit manually.
+            });
+    }
 
     // Populate month dropdown
     function populateMonthDropdown() {
@@ -50,6 +116,7 @@
             document.getElementById('budget-year').value = year;
             document.getElementById('budget-month').value = month;
             document.getElementById('budget-month-param').value = year + '-' + month;
+            loadBudgetForSelectedMonth();
         }
     }
 
@@ -80,8 +147,11 @@
         const monthPadded = String(month).padStart(2, '0');
         const monthValue = year + '-' + monthPadded;
 
-        document.getElementById('budget-id').value = budgetId || '';
-        document.getElementById('budget-wallet-id').value = walletId || '';
+        modalBaseMode = mode;
+        modalBaseBudgetId = budgetId || '';
+
+        budgetIdInput.value = budgetId || '';
+        budgetWalletIdInput.value = walletId || '';
         document.getElementById('budget-year').value = year;
         document.getElementById('budget-month').value = month;
         document.getElementById('budget-month-param').value = monthValue;
@@ -95,16 +165,18 @@
         }
 
         // Only populate if non-zero, otherwise leave blank for optional field
-        document.getElementById('budget-expected-income').value = expectedIncome && expectedIncome > 0 ? expectedIncome : '';
-        document.getElementById('budget-expected-expense').value = expectedExpense || 0;
-        document.getElementById('budget-notes').value = notes || '';
+        expectedIncomeInput.value = expectedIncome && expectedIncome > 0 ? expectedIncome : '';
+        expectedExpenseInput.value = expectedExpense || 0;
+        notesInput.value = notes || '';
 
-        budgetActionInput.value = mode === 'add' ? 'budget_add' : 'budget_edit';
-        budgetTitle.textContent = mode === 'add' ? 'Set Budget' : 'Edit Budget';
+        setBudgetModalMode(mode);
 
         budgetModal.classList.add('open');
         budgetModal.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
+
+        // Auto-load if selected month already has a budget entry.
+        loadBudgetForSelectedMonth();
     };
 
     window.closeBudgetModal = function() {
@@ -194,10 +266,11 @@
                         }
                     }
 
-                    // Try to get budget ID from a data attribute if available
+                    // Get budget metadata from card data attributes
                     const budgetId = budgetCard.dataset.budgetId || null;
+                    const notes = budgetCard.dataset.budgetNotes || '';
 
-                    window.openBudgetModal('edit', budgetId, walletId, year, month, expectedIncome, expectedExpense);
+                    window.openBudgetModal('edit', budgetId, walletId, year, month, expectedIncome, expectedExpense, notes);
                 }
             }
         }
