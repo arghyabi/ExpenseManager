@@ -94,6 +94,22 @@ h2 {
     color: var(--accent-income);
 }
 
+.flash-error {
+    background: #ffeaea;
+    border: 1px solid #ffb3b3;
+    color: #b71c1c;
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin: 10px 0 14px 0;
+    font-weight: 600;
+}
+
+.dark-theme .flash-error {
+    background: #4a1f1f;
+    border: 1px solid #7f2d2d;
+    color: #ffb3b3;
+}
+
 .btn {
     display: inline-block;
     background: var(--primary);
@@ -793,6 +809,29 @@ hr {
     color: #bf360c !important;
 }
 
+/* Warning text must override wallet/bank theme row colors */
+.wallet-card .card-row .warning-label,
+.bank-card .card-row .warning-label {
+    color: #ff5252 !important;
+}
+
+.wallet-card .card-row .warning-value,
+.bank-card .card-row .warning-value {
+    color: #ff1744 !important;
+    font-weight: 700 !important;
+}
+
+.dark-theme .wallet-card .card-row .warning-label,
+.dark-theme .bank-card .card-row .warning-label {
+    color: #ff8a80 !important;
+}
+
+.dark-theme .wallet-card .card-row .warning-value,
+.dark-theme .bank-card .card-row .warning-value {
+    color: #ff5252 !important;
+    font-weight: 700 !important;
+}
+
 .dark-theme .bank-card {
     background: #3e2723 !important;
     border-color: #5d4037 !important;
@@ -804,6 +843,20 @@ hr {
 
 .dark-theme .bank-card .card-row .value {
     color: #ffcc80 !important;
+}
+
+/* Final dark-theme warning override (must come after dark card label/value rules) */
+.dark-theme .wallet-card[data-wallet-type="budget"] .card-row .label.warning-label,
+.dark-theme .wallet-card[data-wallet-type="balance"] .card-row .label.warning-label,
+.dark-theme .bank-card .card-row .label.warning-label {
+    color: #ff8a80 !important;
+}
+
+.dark-theme .wallet-card[data-wallet-type="budget"] .card-row .value.warning-value,
+.dark-theme .wallet-card[data-wallet-type="balance"] .card-row .value.warning-value,
+.dark-theme .bank-card .card-row .value.warning-value {
+    color: #ff5252 !important;
+    font-weight: 700 !important;
 }
 
 /* Light theme hover colors */

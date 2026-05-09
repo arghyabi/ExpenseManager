@@ -8,13 +8,22 @@
     const walletTitle = document.getElementById('wallet-modal-title');
     const walletActionInput = document.getElementById('wallet-action');
 
-    window.openWalletModal = function(mode = 'add', walletId = null, walletName = '', description = '', walletType = 'balance') {
+    window.openWalletModal = function(mode = 'add', walletId = null, walletName = '', description = '', walletType = 'balance', bankId = null) {
         if (!walletModal) return;
 
         document.getElementById('wallet-id').value = walletId || '';
         document.getElementById('wallet-name').value = walletName;
         document.getElementById('wallet-description').value = description;
         document.getElementById('wallet-type').value = walletType;
+        // Set bank if provided, otherwise leave as default "None"
+        if (bankId && bankId > 0) {
+            document.getElementById('wallet-bank').value = bankId;
+        } else {
+            document.getElementById('wallet-bank').value = '';
+        }
+        // Store current page so backend can redirect back after save
+        document.getElementById('wallet-return-to').value = window.location.href;
+
         walletActionInput.value = mode === 'add' ? 'wallet_add' : 'wallet_edit';
         walletTitle.textContent = mode === 'add' ? 'Add Wallet' : 'Edit Wallet';
 
@@ -94,7 +103,8 @@
             const walletName = btn.dataset.name;
             const description = btn.dataset.description || '';
             const walletType = btn.dataset.walletType || 'balance';
-            window.openWalletModal('edit', walletId, walletName, description, walletType);
+            const bankId = btn.dataset.bankId || null;
+            window.openWalletModal('edit', walletId, walletName, description, walletType, bankId);
         }
     });
 

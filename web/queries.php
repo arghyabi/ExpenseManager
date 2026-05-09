@@ -55,14 +55,26 @@ class Queries {
                 b.id,
                 b.name,
                 b.description,
-                COALESCE(COUNT(DISTINCT w.id), 0) as wallet_count,
-                IFNULL(SUM(
-                    CASE WHEN t.type='income' THEN t.amount ELSE -t.amount END
-                ), 0) as balance
+                (
+                    SELECT COUNT(*)
+                    FROM wallets w
+                    WHERE w.bank_id = b.id
+                ) as wallet_count,
+                (
+                    SELECT IFNULL(SUM(
+                        CASE WHEN t.type='income' THEN t.amount ELSE -t.amount END
+                    ), 0)
+                    FROM transactions t
+                    WHERE t.payment_method = b.name
+                ) as balance,
+                (
+                    SELECT COUNT(*)
+                    FROM transactions t
+                    LEFT JOIN wallets w2 ON t.wallet_id = w2.id
+                    WHERE t.payment_method = b.name
+                    AND (t.wallet_id IS NULL OR w2.id IS NULL)
+                ) as warning_count
             FROM banks b
-            LEFT JOIN wallets w ON b.id = w.bank_id
-            LEFT JOIN transactions t ON w.id = t.wallet_id
-            GROUP BY b.id, b.name, b.description
             ORDER BY b.name ASC"
         );
     }
@@ -86,10 +98,22 @@ class Queries {
                 COALESCE(b.name, 'Unknown') as bank_name,
                 IFNULL(SUM(
                     CASE WHEN t.type='income' THEN t.amount ELSE -t.amount END
-                ), 0) as balance
+                ), 0) as balance,
+                IFNULL(SUM(
+                    CASE
+                        WHEN t.id IS NOT NULL
+                             AND (
+                                t.payment_method IS NULL
+                                OR t.payment_method = ''
+                                OR pb.id IS NULL
+                             ) THEN 1
+                        ELSE 0
+                    END
+                ), 0) as warning_count
             FROM wallets w
             LEFT JOIN banks b ON w.bank_id = b.id
             LEFT JOIN transactions t ON w.id = t.wallet_id
+            LEFT JOIN banks pb ON pb.name = t.payment_method
             GROUP BY w.id, w.name, w.bank_id, w.description, w.wallet_type, b.name
             ORDER BY w.wallet_type ASC, w.name ASC"
         );
@@ -128,19 +152,6 @@ class Queries {
         return $stmt->execute();
     }
 
-    public function detectWalletType($wallet_id) {
-        // Check if wallet has ANY income transactions
-        $stmt = $this->db->prepare(
-            "SELECT COUNT(*) as income_count FROM transactions WHERE wallet_id = ? AND type = 'income'"
-        );
-        $stmt->bindValue(1, $wallet_id, SQLITE3_INTEGER);
-        $result = $stmt->execute()->fetchArray(SQLITE3_ASSOC);
-
-        // If has income transactions → 'balance' wallet
-        // If only expenses → 'budget' wallet
-        return $result['income_count'] > 0 ? 'balance' : 'budget';
-    }
-
     public function addWallet($name, $bank_id, $description = '', $wallet_type = 'balance') {
         $stmt = $this->db->prepare("INSERT INTO wallets (name, bank_id, description, wallet_type) VALUES (?, ?, ?, ?)");
         $stmt->bindValue(1, $name, SQLITE3_TEXT);
@@ -151,9 +162,10 @@ class Queries {
     }
 
     public function editWallet($wallet_id, $name, $bank_id, $description = '', $wallet_type = null) {
-        // If wallet_type is not provided, auto-detect it
+        // Respect explicit wallet type from UI. If absent, keep existing value.
         if ($wallet_type === null) {
-            $wallet_type = $this->detectWalletType($wallet_id);
+            $existing = $this->getWalletById($wallet_id);
+            $wallet_type = $existing['wallet_type'] ?? 'balance';
         }
         $stmt = $this->db->prepare("UPDATE wallets SET name = ?, bank_id = ?, description = ?, wallet_type = ? WHERE id = ?");
         $stmt->bindValue(1, $name, SQLITE3_TEXT);
@@ -171,13 +183,6 @@ class Queries {
     }
 
     // ====================================================
-    // ACCOUNT QUERIES
-    // ====================================================
-
-    public function getAllAccounts() {
-        return $this->db->query("SELECT * FROM accounts ORDER BY name ASC");
-    }
-
     // ====================================================
     // TRANSACTION QUERIES - WALLET SPECIFIC
     // ====================================================
@@ -185,9 +190,20 @@ class Queries {
     public function getWalletTransactions($wallet_id, $page = 1, $per_page = 10) {
         $offset = ($page - 1) * $per_page;
         $stmt = $this->db->prepare(
-            "SELECT t.*, w.name as wallet
+            "SELECT t.*, w.name as wallet,
+                    CASE
+                        WHEN t.payment_method IS NULL OR t.payment_method = '' THEN 1
+                        ELSE 0
+                    END as is_missing_bank,
+                    CASE
+                        WHEN t.payment_method IS NOT NULL
+                             AND t.payment_method != ''
+                             AND pb.id IS NULL THEN 1
+                        ELSE 0
+                    END as is_orphan_bank
              FROM transactions t
              LEFT JOIN wallets w ON t.wallet_id=w.id
+             LEFT JOIN banks pb ON pb.name=t.payment_method
              WHERE t.wallet_id = ?
              ORDER BY t.date DESC
              LIMIT ? OFFSET ?"
@@ -207,9 +223,20 @@ class Queries {
 
     public function getWalletMonthlyTransactions($wallet_id, $year, $month) {
         $stmt = $this->db->prepare(
-            "SELECT t.*, w.name as wallet
+            "SELECT t.*, w.name as wallet,
+                    CASE
+                        WHEN t.payment_method IS NULL OR t.payment_method = '' THEN 1
+                        ELSE 0
+                    END as is_missing_bank,
+                    CASE
+                        WHEN t.payment_method IS NOT NULL
+                             AND t.payment_method != ''
+                             AND pb.id IS NULL THEN 1
+                        ELSE 0
+                    END as is_orphan_bank
              FROM transactions t
              LEFT JOIN wallets w ON t.wallet_id=w.id
+             LEFT JOIN banks pb ON pb.name=t.payment_method
              WHERE t.wallet_id = ?
              AND strftime('%Y', t.date) = ?
              AND strftime('%m', t.date) = ?
@@ -259,10 +286,15 @@ class Queries {
     public function getBankTransactions($bank_id, $page = 1, $per_page = 10) {
         $offset = ($page - 1) * $per_page;
         $stmt = $this->db->prepare(
-            "SELECT t.*, w.name as wallet
+            "SELECT t.*, w.name as wallet,
+                    CASE
+                        WHEN t.wallet_id IS NOT NULL AND w.id IS NULL THEN 1
+                        WHEN t.wallet_id IS NULL THEN 1
+                        ELSE 0
+                    END as is_orphan_wallet
              FROM transactions t
              LEFT JOIN wallets w ON t.wallet_id=w.id
-             WHERE w.bank_id = ?
+             WHERE t.payment_method = (SELECT name FROM banks WHERE id = ?)
              ORDER BY t.date DESC
              LIMIT ? OFFSET ?"
         );
@@ -275,8 +307,7 @@ class Queries {
     public function getBankTransactionCount($bank_id) {
         $stmt = $this->db->prepare(
             "SELECT COUNT(*) as count FROM transactions t
-             LEFT JOIN wallets w ON t.wallet_id=w.id
-             WHERE w.bank_id = ?"
+             WHERE t.payment_method = (SELECT name FROM banks WHERE id = ?)"
         );
         $stmt->bindValue(1, $bank_id, SQLITE3_INTEGER);
         $result = $stmt->execute()->fetchArray(SQLITE3_ASSOC);
@@ -285,10 +316,15 @@ class Queries {
 
     public function getBankMonthlyTransactions($bank_id, $year, $month) {
         $stmt = $this->db->prepare(
-            "SELECT t.*, w.name as wallet
+            "SELECT t.*, w.name as wallet,
+                    CASE
+                        WHEN t.wallet_id IS NOT NULL AND w.id IS NULL THEN 1
+                        WHEN t.wallet_id IS NULL THEN 1
+                        ELSE 0
+                    END as is_orphan_wallet
              FROM transactions t
              LEFT JOIN wallets w ON t.wallet_id=w.id
-             WHERE w.bank_id = ?
+             WHERE t.payment_method = (SELECT name FROM banks WHERE id = ?)
              AND strftime('%Y', t.date) = ?
              AND strftime('%m', t.date) = ?
              ORDER BY t.date DESC"
@@ -305,8 +341,7 @@ class Queries {
                 CASE WHEN t.type='income' THEN t.amount ELSE -t.amount END
             ), 0) as balance
             FROM transactions t
-            LEFT JOIN wallets w ON t.wallet_id=w.id
-            WHERE w.bank_id = ?"
+            WHERE t.payment_method = (SELECT name FROM banks WHERE id = ?)"
         );
         $stmt->bindValue(1, $bank_id, SQLITE3_INTEGER);
         $result = $stmt->execute()->fetchArray(SQLITE3_ASSOC);
@@ -314,13 +349,13 @@ class Queries {
     }
 
     public function getTotalBalance() {
-        $stmt = $this->db->prepare(
+        $result = $this->db->query(
             "SELECT IFNULL(SUM(
-                CASE WHEN type='income' THEN amount ELSE -amount END
+                CASE WHEN t.type='income' THEN t.amount ELSE -t.amount END
             ), 0) as balance
-            FROM transactions"
-        );
-        $result = $stmt->execute()->fetchArray(SQLITE3_ASSOC);
+            FROM transactions t
+            WHERE t.payment_method IS NOT NULL AND t.payment_method != ''"
+        )->fetchArray(SQLITE3_ASSOC);
         return $result['balance'] ?? 0;
     }
 
@@ -333,8 +368,7 @@ class Queries {
                 SUM(CASE WHEN t.type='expense' THEN t.amount ELSE 0 END) AS expense,
                 SUM(CASE WHEN t.type='income' THEN t.amount ELSE -t.amount END) AS net
             FROM transactions t
-            LEFT JOIN wallets w ON t.wallet_id=w.id
-            WHERE w.bank_id = ?
+            WHERE t.payment_method = (SELECT name FROM banks WHERE id = ?)
             GROUP BY year, month
             ORDER BY year DESC, month DESC"
         );
@@ -346,37 +380,35 @@ class Queries {
     // TRANSACTION QUERIES - GLOBAL
     // ====================================================
 
-    public function addTransaction($date, $type, $amount, $wallet_id, $account_id, $note = '', $title = '', $payment_method = '') {
+    public function addTransaction($date, $type, $amount, $wallet_id, $note = '', $title = '', $payment_method = '') {
         $stmt = $this->db->prepare(
-            "INSERT INTO transactions (date, type, amount, wallet_id, account_id, note, title, payment_mode, payment_method)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'cash', ?)"
+            "INSERT INTO transactions (date, type, amount, wallet_id, note, title, payment_method)
+             VALUES (?, ?, ?, ?, ?, ?, ?)"
         );
         $stmt->bindValue(1, $date, SQLITE3_TEXT);
         $stmt->bindValue(2, $type, SQLITE3_TEXT);
         $stmt->bindValue(3, $amount, SQLITE3_FLOAT);
         $stmt->bindValue(4, $wallet_id, SQLITE3_INTEGER);
-        $stmt->bindValue(5, $account_id, SQLITE3_INTEGER);
-        $stmt->bindValue(6, $note, SQLITE3_TEXT);
-        $stmt->bindValue(7, $title, SQLITE3_TEXT);
-        $stmt->bindValue(8, $payment_method, SQLITE3_TEXT);
+        $stmt->bindValue(5, $note, SQLITE3_TEXT);
+        $stmt->bindValue(6, $title, SQLITE3_TEXT);
+        $stmt->bindValue(7, $payment_method, SQLITE3_TEXT);
         return $stmt->execute() ? $this->db->lastInsertRowid() : false;
     }
 
-    public function editTransaction($tx_id, $date, $type, $amount, $wallet_id, $account_id, $note = '', $title = '', $payment_method = '') {
+    public function editTransaction($tx_id, $date, $type, $amount, $wallet_id, $note = '', $title = '', $payment_method = '') {
         $stmt = $this->db->prepare(
             "UPDATE transactions
-             SET date=?, type=?, amount=?, wallet_id=?, account_id=?, note=?, title=?, payment_method=?
+             SET date=?, type=?, amount=?, wallet_id=?, note=?, title=?, payment_method=?
              WHERE id=?"
         );
         $stmt->bindValue(1, $date, SQLITE3_TEXT);
         $stmt->bindValue(2, $type, SQLITE3_TEXT);
         $stmt->bindValue(3, $amount, SQLITE3_FLOAT);
         $stmt->bindValue(4, $wallet_id, SQLITE3_INTEGER);
-        $stmt->bindValue(5, $account_id, SQLITE3_INTEGER);
-        $stmt->bindValue(6, $note, SQLITE3_TEXT);
-        $stmt->bindValue(7, $title, SQLITE3_TEXT);
-        $stmt->bindValue(8, $payment_method, SQLITE3_TEXT);
-        $stmt->bindValue(9, $tx_id, SQLITE3_INTEGER);
+        $stmt->bindValue(5, $note, SQLITE3_TEXT);
+        $stmt->bindValue(6, $title, SQLITE3_TEXT);
+        $stmt->bindValue(7, $payment_method, SQLITE3_TEXT);
+        $stmt->bindValue(8, $tx_id, SQLITE3_INTEGER);
         return $stmt->execute();
     }
 
@@ -463,7 +495,7 @@ class Queries {
         $dateStr = "$year-$monthStr";
 
         $stmt = $this->db->prepare(
-            "INSERT OR REPLACE INTO budget (wallet_id, month, expected_income, expected_expense, notes, created_at, updated_at)
+            "INSERT INTO budget (wallet_id, month, expected_income, expected_expense, notes, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
         );
         $stmt->bindValue(1, $wallet_id, SQLITE3_INTEGER);
