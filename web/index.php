@@ -1077,7 +1077,20 @@ else {
 
             <div class="form-group">
                 <label>Month & Year</label>
-                <div id="budget-month-display" style="padding: 10px; background: var(--surface-alt); border-radius: 4px; font-weight: 600;"></div>
+                <div style="display: flex; gap: 10px; width: 100%;">
+                    <div style="flex: 1;">
+                        <label for="budget-month-select" style="font-size: 0.9rem; display: block; margin-bottom: 5px;">Month</label>
+                        <select id="budget-month-select" required style="width: 100%;">
+                            <option value="">-- Select --</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label for="budget-year-select" style="font-size: 0.9rem; display: block; margin-bottom: 5px;">Year</label>
+                        <select id="budget-year-select" required style="width: 100%;">
+                            <option value="">-- Select --</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
             <div class="form-group">
