@@ -69,12 +69,9 @@ document.addEventListener('click', function(e) {
         const name = btn.getAttribute('data-name');
         const walletType = btn.getAttribute('data-wallet-type');
         const description = btn.getAttribute('data-description');
+        const bankId = btn.getAttribute('data-bank-id');
 
-        document.getElementById('wallet-id').value = id;
-        document.getElementById('wallet-name').value = name;
-        document.getElementById('wallet-type').value = walletType;
-        document.getElementById('wallet-description').value = description;
-        document.getElementById('wallet-modal-overlay').classList.add('open');
+        window.openWalletModal('edit', id, name, description, walletType, bankId);
 
         document.querySelectorAll('.wallet-menu-dropdown').forEach(d => d.classList.remove('open'));
     }

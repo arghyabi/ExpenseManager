@@ -29,12 +29,24 @@
             document.getElementById('tx-id').value = '';
             actionInput.value = 'tx_add';
             modalTitle.textContent = 'Add Transaction';
+            // Restore wallet's default bank in payment method after reset
+            const paymentMethodField = document.getElementById('m_payment_method');
+            if (paymentMethodField && window.walletDefaultBank) {
+                paymentMethodField.value = window.walletDefaultBank;
+            }
         }
     };
 
     // Add transaction button
     if (openBtn) {
-        openBtn.addEventListener('click', window.openTransactionModal);
+        openBtn.addEventListener('click', function() {
+            // Pre-select wallet's default bank as payment method for new transactions
+            const paymentMethodField = document.getElementById('m_payment_method');
+            if (paymentMethodField && window.walletDefaultBank) {
+                paymentMethodField.value = window.walletDefaultBank;
+            }
+            window.openTransactionModal();
+        });
     }
 
     // Close handlers

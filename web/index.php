@@ -8,6 +8,11 @@ if (empty($_SESSION['csrf_token'])) {
 }
 $csrf_token = $_SESSION['csrf_token'];
 
+$flash_error = isset($_SESSION['flash_error']) ? $_SESSION['flash_error'] : '';
+if ($flash_error !== '') {
+    unset($_SESSION['flash_error']);
+}
+
 $db = getDB();
 
 # -----------------------
@@ -138,6 +143,17 @@ else {
     <script>
         // Expose CSRF token to JavaScript for use in dynamic forms
         window.csrfToken = '<?= htmlspecialchars($csrf_token) ?>';
+        // Expose wallet's default bank name for pre-selecting payment method
+        <?php
+        $defaultBankName = '';
+        if ($view === 'wallet' && $currentWallet && !empty($currentWallet['bank_id'])) {
+            $defaultBank = $queries->getBankById($currentWallet['bank_id']);
+            if ($defaultBank) {
+                $defaultBankName = $defaultBank['name'];
+            }
+        }
+        ?>
+        window.walletDefaultBank = '<?= htmlspecialchars($defaultBankName) ?>';
     </script>
 </head>
 <body>
@@ -148,6 +164,12 @@ else {
         <button id="theme-toggle" class="theme-toggle">🌙</button>
     </div>
 </div>
+
+<?php if (!empty($flash_error)): ?>
+<div class="flash-error" role="alert" aria-live="polite">
+    ⚠ <?= htmlspecialchars($flash_error) ?>
+</div>
+<?php endif; ?>
 
 <!-- Navigation breadcrumb -->
 <div class="nav-breadcrumb">
@@ -177,7 +199,7 @@ else {
         <div class="breadcrumb-menu">
             <button class="wallet-menu-btn" type="button">⋮</button>
             <div class="wallet-menu-dropdown">
-                <button class="wallet-menu-item wallet-edit-option" data-id="<?= htmlspecialchars($id) ?>" data-name="<?= htmlspecialchars($currentWallet['name']) ?>" data-wallet-type="<?= htmlspecialchars($currentWallet['wallet_type'] ?? 'balance') ?>" data-description="<?= htmlspecialchars($currentWallet['description'] ?? '') ?>">✏️ Edit Wallet</button>
+                <button class="wallet-menu-item wallet-edit-option" data-id="<?= htmlspecialchars($id) ?>" data-name="<?= htmlspecialchars($currentWallet['name']) ?>" data-bank-id="<?= htmlspecialchars($currentWallet['bank_id']) ?>" data-wallet-type="<?= htmlspecialchars($currentWallet['wallet_type'] ?? 'balance') ?>" data-description="<?= htmlspecialchars($currentWallet['description'] ?? '') ?>">✏️ Edit Wallet</button>
                 <div style="height: 1px; background: #ddd; margin: 5px 0;"></div>
                 <button class="wallet-menu-item wallet-full-statement-btn">📥 Full Statement</button>
                 <button class="wallet-menu-item wallet-monthly-statement-btn">📄 Monthly Statement</button>
@@ -226,6 +248,12 @@ else {
                     <span class="label">Balance</span>
                     <span class="value">₹ <?= number_format($bank['balance'], 2) ?></span>
                 </div>
+                <?php if (!empty($bank['warning_count'])): ?>
+                <div class="card-row">
+                    <span class="label warning-label">Warnings</span>
+                    <span class="value warning-value">⚠ <?= htmlspecialchars($bank['warning_count']) ?></span>
+                </div>
+                <?php endif; ?>
                 <?php if (!empty($bank['description'])): ?>
                 <div class="card-row">
                     <span class="label">Add'l Info</span>
@@ -268,7 +296,7 @@ else {
                         <button class="card-menu-btn" data-id="<?= htmlspecialchars($wallet['id']) ?>" data-name="<?= htmlspecialchars($wallet['name']) ?>" data-wallet-type="<?= htmlspecialchars($wallet['wallet_type']) ?>" data-description="<?= htmlspecialchars($wallet['description'] ?? '') ?>">⋮</button>
                         <div class="card-menu-dropdown">
                             <a href="index.php?view=wallet&id=<?= htmlspecialchars($wallet['id']) ?>" class="card-menu-item">👁️ View</a>
-                            <button class="card-menu-item wallet-edit-btn" data-id="<?= htmlspecialchars($wallet['id']) ?>" data-name="<?= htmlspecialchars($wallet['name']) ?>" data-wallet-type="<?= htmlspecialchars($wallet['wallet_type']) ?>" data-description="<?= htmlspecialchars($wallet['description'] ?? '') ?>">✏️ Edit</button>
+                            <button class="card-menu-item wallet-edit-btn" data-id="<?= htmlspecialchars($wallet['id']) ?>" data-name="<?= htmlspecialchars($wallet['name']) ?>" data-bank-id="<?= htmlspecialchars($wallet['bank_id']) ?>" data-wallet-type="<?= htmlspecialchars($wallet['wallet_type']) ?>" data-description="<?= htmlspecialchars($wallet['description'] ?? '') ?>">✏️ Edit</button>
                             <button class="card-menu-item card-delete-danger wallet-delete-btn" data-id="<?= htmlspecialchars($wallet['id']) ?>" data-name="<?= htmlspecialchars($wallet['name']) ?>">🗑️ Delete</button>
                         </div>
                     </div>
@@ -334,6 +362,12 @@ else {
                         No budget set for this month
                     </div>
                     <?php endif; ?>
+                    <?php if (!empty($wallet['warning_count'])): ?>
+                    <div class="card-row">
+                        <span class="label warning-label">Warnings</span>
+                        <span class="value warning-value">⚠ <?= htmlspecialchars($wallet['warning_count']) ?></span>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -354,7 +388,7 @@ else {
                         <button class="card-menu-btn" data-id="<?= htmlspecialchars($wallet['id']) ?>" data-name="<?= htmlspecialchars($wallet['name']) ?>" data-wallet-type="<?= htmlspecialchars($wallet['wallet_type']) ?>" data-description="<?= htmlspecialchars($wallet['description'] ?? '') ?>">⋮</button>
                         <div class="card-menu-dropdown">
                             <a href="index.php?view=wallet&id=<?= htmlspecialchars($wallet['id']) ?>" class="card-menu-item">👁️ View</a>
-                            <button class="card-menu-item wallet-edit-btn" data-id="<?= htmlspecialchars($wallet['id']) ?>" data-name="<?= htmlspecialchars($wallet['name']) ?>" data-wallet-type="<?= htmlspecialchars($wallet['wallet_type']) ?>" data-description="<?= htmlspecialchars($wallet['description'] ?? '') ?>">✏️ Edit</button>
+                            <button class="card-menu-item wallet-edit-btn" data-id="<?= htmlspecialchars($wallet['id']) ?>" data-name="<?= htmlspecialchars($wallet['name']) ?>" data-bank-id="<?= htmlspecialchars($wallet['bank_id']) ?>" data-wallet-type="<?= htmlspecialchars($wallet['wallet_type']) ?>" data-description="<?= htmlspecialchars($wallet['description'] ?? '') ?>">✏️ Edit</button>
                             <button class="card-menu-item card-delete-danger wallet-delete-btn" data-id="<?= htmlspecialchars($wallet['id']) ?>" data-name="<?= htmlspecialchars($wallet['name']) ?>">🗑️ Delete</button>
                         </div>
                     </div>
@@ -368,6 +402,12 @@ else {
                         <span class="label">Type</span>
                         <span class="value" style="color: #27ae60;">Balance Wallet</span>
                     </div>
+                    <?php if (!empty($wallet['warning_count'])): ?>
+                    <div class="card-row">
+                        <span class="label warning-label">Warnings</span>
+                        <span class="value warning-value">⚠ <?= htmlspecialchars($wallet['warning_count']) ?></span>
+                    </div>
+                    <?php endif; ?>
                     <?php if (!empty($wallet['description'])): ?>
                     <div class="card-row">
                         <span class="label">Add'l Info</span>
@@ -442,7 +482,7 @@ else {
     <hr>
 
     <!-- Bank's Transactions -->
-    <h2><?php if ($validMonth): ?>Transactions for <?= htmlspecialchars(date('F Y', strtotime($validMonth . '-01'))) ?> <a href="?view=bank&id=<?= htmlspecialchars($id) ?>" style="font-size: 0.8rem; margin-left: 10px;">← View All</a><?php else: ?>All Transactions (from all wallets in this bank)<?php endif; ?></h2>
+    <h2><?php if ($validMonth): ?>Transactions for <?= htmlspecialchars(date('F Y', strtotime($validMonth . '-01'))) ?> <a href="?view=bank&id=<?= htmlspecialchars($id) ?>" style="font-size: 0.8rem; margin-left: 10px;">← View All</a><?php else: ?>All Transactions (using this bank as payment method)<?php endif; ?></h2>
     <div class="grid tx-grid">
         <?php while($r = $transactions->fetchArray(SQLITE3_ASSOC)): ?>
         <div class="card tx-card">
@@ -452,6 +492,8 @@ else {
                     <div class="tx-date"><?= htmlspecialchars($r['date']) ?></div>
                     <?php if(!empty($r['wallet'])): ?>
                     <div class="tx-note" style="color: var(--text-muted); font-size: 0.85rem;">💳 <?= htmlspecialchars($r['wallet']) ?></div>
+                    <?php elseif(!empty($r['is_orphan_wallet'])): ?>
+                    <div class="tx-note" style="color: #d35400; font-size: 0.85rem;">⚠ Wallet removed. Edit transaction to assign a wallet.</div>
                     <?php endif; ?>
                     <?php if(!empty($r['note'])): ?>
                     <div class="tx-note"><?= htmlspecialchars($r['note']) ?></div>
@@ -459,7 +501,7 @@ else {
                 </div>
                 <div class="tx-right-section">
                     <div class="tx-menu-container">
-                        <button class="tx-menu-btn" data-id="<?= htmlspecialchars($r['id']) ?>" data-date="<?= htmlspecialchars($r['date']) ?>" data-type="<?= htmlspecialchars($r['type']) ?>" data-amount="<?= htmlspecialchars($r['amount']) ?>" data-wallet="<?= htmlspecialchars($r['wallet_id']) ?>" data-account="<?= htmlspecialchars($r['account_id']) ?>" data-note="<?= htmlspecialchars($r['note']) ?>" data-title="<?= htmlspecialchars($r['title'] ?? '') ?>" data-payment-method="<?= htmlspecialchars($r['payment_method'] ?? '') ?>" data-desc="<?= htmlspecialchars($r['date'] . ' - ' . ($r['wallet'] ?? 'Unknown')) ?>">⋮</button>
+                        <button class="tx-menu-btn" data-id="<?= htmlspecialchars($r['id']) ?>" data-date="<?= htmlspecialchars($r['date']) ?>" data-type="<?= htmlspecialchars($r['type']) ?>" data-amount="<?= htmlspecialchars($r['amount']) ?>" data-wallet="<?= htmlspecialchars($r['wallet_id']) ?>" data-note="<?= htmlspecialchars($r['note']) ?>" data-title="<?= htmlspecialchars($r['title'] ?? '') ?>" data-payment-method="<?= htmlspecialchars($r['payment_method'] ?? '') ?>" data-desc="<?= htmlspecialchars($r['date'] . ' - ' . ($r['wallet'] ?? 'Unknown')) ?>">⋮</button>
                         <div class="tx-menu-dropdown">
                             <button class="tx-menu-item tx-edit-option">✏️ Edit</button>
                             <button class="tx-menu-item tx-delete-option">🗑️ Delete</button>
@@ -853,6 +895,11 @@ else {
                         <div class="tx-date"><?= htmlspecialchars($r['date']) ?></div>
                         <?php if(!empty($r['payment_method'])): ?>
                         <div class="tx-note" style="color: var(--text-muted); font-size: 0.85rem;">💳 <?= htmlspecialchars($r['payment_method']) ?></div>
+                        <?php if(!empty($r['is_orphan_bank'])): ?>
+                        <div class="tx-note" style="color: #d35400; font-size: 0.85rem;">⚠ Bank deleted. Update payment bank if needed.</div>
+                        <?php endif; ?>
+                        <?php elseif(!empty($r['is_missing_bank'])): ?>
+                        <div class="tx-note" style="color: #d35400; font-size: 0.85rem;">⚠ Bank not selected. Update transaction to assign a bank.</div>
                         <?php endif; ?>
                         <?php if(!empty($r['note'])): ?>
                         <div class="tx-note"><?= htmlspecialchars($r['note']) ?></div>
@@ -860,7 +907,7 @@ else {
                     </div>
                     <div class="tx-right-section">
                         <div class="tx-menu-container">
-                            <button class="tx-menu-btn" data-id="<?= htmlspecialchars($r['id']) ?>" data-date="<?= htmlspecialchars($r['date']) ?>" data-type="<?= htmlspecialchars($r['type']) ?>" data-amount="<?= htmlspecialchars($r['amount']) ?>" data-wallet="<?= htmlspecialchars($r['wallet_id']) ?>" data-account="<?= htmlspecialchars($r['account_id']) ?>" data-note="<?= htmlspecialchars($r['note']) ?>" data-title="<?= htmlspecialchars($r['title'] ?? '') ?>" data-payment-method="<?= htmlspecialchars($r['payment_method'] ?? '') ?>" data-desc="<?= htmlspecialchars($r['date'] . ' - ' . $currentWallet['name']) ?>">⋮</button>
+                            <button class="tx-menu-btn" data-id="<?= htmlspecialchars($r['id']) ?>" data-date="<?= htmlspecialchars($r['date']) ?>" data-type="<?= htmlspecialchars($r['type']) ?>" data-amount="<?= htmlspecialchars($r['amount']) ?>" data-wallet="<?= htmlspecialchars($r['wallet_id']) ?>" data-note="<?= htmlspecialchars($r['note']) ?>" data-title="<?= htmlspecialchars($r['title'] ?? '') ?>" data-payment-method="<?= htmlspecialchars($r['payment_method'] ?? '') ?>" data-desc="<?= htmlspecialchars($r['date'] . ' - ' . $currentWallet['name']) ?>">⋮</button>
                             <div class="tx-menu-dropdown">
                                 <button class="tx-menu-item tx-edit-option">✏️ Edit</button>
                                 <button class="tx-menu-item tx-delete-option">🗑️ Delete</button>
@@ -949,6 +996,9 @@ else {
                 <small style="color: var(--text-muted); margin-top: 4px; display: block;" id="payment-method-hint">
                     Where the payment will be deducted from
                 </small>
+                <small style="color: #3498db; margin-top: 2px; display: block; font-size: 0.8rem;">
+                    💡 Tip: Each transaction can use a different bank, even within the same wallet
+                </small>
             </div>
             <?php if ($view !== 'wallet'): ?>
             <div class="form-group">
@@ -967,19 +1017,6 @@ else {
             <!-- When in wallet view, wallet is auto-selected via hidden input -->
             <input type="hidden" id="m_wallet" name="wallet" value="<?= htmlspecialchars($id) ?>">
             <?php endif; ?>
-            <div class="form-group">
-                <label for="m_account">Account</label>
-                <select id="m_account" name="account" required>
-                    <option value="">-- Select Account --</option>
-                    <?php
-                    // Reset the result pointer for reuse
-                    $accountsResult = $queries->getAllAccounts();
-                    while($a = $accountsResult->fetchArray(SQLITE3_ASSOC)) {
-                    ?>
-                        <option value="<?= htmlspecialchars($a['id']) ?>"><?= htmlspecialchars($a['name']) ?></option>
-                    <?php } ?>
-                </select>
-            </div>
             <div class="form-group">
                 <label for="m_note">Note</label>
                 <input id="m_note" type="text" name="note" placeholder="Optional notes...">
@@ -1003,6 +1040,7 @@ else {
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
             <input type="hidden" id="wallet-id" name="wallet_id" value="">
             <input type="hidden" id="wallet-action" name="action" value="wallet_add">
+            <input type="hidden" id="wallet-return-to" name="return_to" value="">
 
             <div class="form-group">
                 <label for="wallet-name">Wallet Name</label>
@@ -1011,6 +1049,21 @@ else {
             <div class="form-group">
                 <label for="wallet-description">Description</label>
                 <input id="wallet-description" type="text" name="description" placeholder="Optional description...">
+            </div>
+            <div class="form-group">
+                <label for="wallet-bank">Default Bank/Payment Method (Optional)</label>
+                <select id="wallet-bank" name="bank_id">
+                    <option value="">-- None (Choose per transaction) --</option>
+                    <?php
+                    $allBanksForSelect = $queries->getAllBanks();
+                    while($b = $allBanksForSelect->fetchArray(SQLITE3_ASSOC)) {
+                    ?>
+                        <option value="<?= htmlspecialchars($b['id']) ?>"><?= htmlspecialchars($b['name']) ?></option>
+                    <?php } ?>
+                </select>
+                <small style="color: var(--text-muted); margin-top: 4px; display: block;">
+                    Set a default bank for convenience, but you can override it for each transaction. <strong>Wallets can contain transactions from multiple banks.</strong>
+                </small>
             </div>
             <div class="form-group">
                 <label for="wallet-type">Wallet Type</label>

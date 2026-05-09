@@ -16,7 +16,6 @@
             const type = menuBtn.dataset.type;
             const amount = menuBtn.dataset.amount;
             const walletId = menuBtn.dataset.wallet;
-            const accountId = menuBtn.dataset.account;
             const note = menuBtn.dataset.note;
             const title = menuBtn.dataset.title;
             const paymentMethod = menuBtn.dataset.paymentMethod || '';
@@ -48,7 +47,6 @@
                 walletField.value = walletId;
             }
 
-            document.getElementById('m_account').value = accountId;
             document.getElementById('m_note').value = note;
             document.getElementById('m_payment_method').value = paymentMethod;
 

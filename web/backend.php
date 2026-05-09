@@ -18,6 +18,10 @@ function validateCSRFToken($token) {
 // Ensure CSRF token is generated for use in forms
 generateCSRFToken();
 
+function setFlashError($message) {
+    $_SESSION['flash_error'] = $message;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validate CSRF token for all state-changing operations
     $csrf_token = isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '';
@@ -41,7 +45,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $type = isset($_POST['type']) ? $_POST['type'] : '';
             $amount = isset($_POST['amount']) ? floatval($_POST['amount']) : 0;
             $wallet = isset($_POST['wallet']) ? intval($_POST['wallet']) : 0;
-            $account = isset($_POST['account']) ? intval($_POST['account']) : 0;
             $note = isset($_POST['note']) ? $_POST['note'] : '';
             $title = isset($_POST['title']) ? $_POST['title'] : '';
             $payment_method = isset($_POST['payment_method']) ? trim($_POST['payment_method']) : '';
@@ -50,8 +53,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $validDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : null;
             $validType = in_array($type, ['income', 'expense']) ? $type : null;
 
-            if ($wallet > 0 && $amount > 0 && $account > 0 && $validDate && $validType) {
-                $queries->addTransaction($validDate, $validType, $amount, $wallet, $account, $note, $title, $payment_method);
+            if (!$validDate) {
+                setFlashError('Invalid date. Please select a valid date.');
+            } elseif (!$validType) {
+                setFlashError('Invalid transaction type.');
+            } elseif ($amount <= 0) {
+                setFlashError('Amount must be greater than 0.');
+            } elseif ($wallet <= 0) {
+                setFlashError('Please select a wallet.');
+            } elseif ($payment_method === '') {
+                setFlashError('Please select a bank/payment method.');
+            }
+
+            if ($wallet > 0 && $amount > 0 && $validDate && $validType) {
+                $queries->addTransaction($validDate, $validType, $amount, $wallet, $note, $title, $payment_method);
             }
         }
         elseif ($action === 'tx_edit' && $tx_id > 0) {
@@ -59,7 +74,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $type = isset($_POST['type']) ? $_POST['type'] : '';
             $amount = isset($_POST['amount']) ? floatval($_POST['amount']) : 0;
             $wallet = isset($_POST['wallet']) ? intval($_POST['wallet']) : 0;
-            $account = isset($_POST['account']) ? intval($_POST['account']) : 0;
             $note = isset($_POST['note']) ? $_POST['note'] : '';
             $title = isset($_POST['title']) ? $_POST['title'] : '';
             $payment_method = isset($_POST['payment_method']) ? trim($_POST['payment_method']) : '';
@@ -68,8 +82,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $validDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : null;
             $validType = in_array($type, ['income', 'expense']) ? $type : null;
 
-            if ($wallet > 0 && $amount > 0 && $account > 0 && $validDate && $validType) {
-                $queries->editTransaction($tx_id, $validDate, $validType, $amount, $wallet, $account, $note, $title, $payment_method);
+            if (!$validDate) {
+                setFlashError('Invalid date. Please select a valid date.');
+            } elseif (!$validType) {
+                setFlashError('Invalid transaction type.');
+            } elseif ($amount <= 0) {
+                setFlashError('Amount must be greater than 0.');
+            } elseif ($wallet <= 0) {
+                setFlashError('Please select a wallet.');
+            } elseif ($payment_method === '') {
+                setFlashError('Please select a bank/payment method.');
+            }
+
+            if ($wallet > 0 && $amount > 0 && $validDate && $validType) {
+                $queries->editTransaction($tx_id, $validDate, $validType, $amount, $wallet, $note, $title, $payment_method);
             }
         }
         elseif ($action === 'tx_delete' && $tx_id > 0) {
@@ -114,18 +140,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $description = isset($_POST['description']) ? trim($_POST['description']) : '';
 
             if ($name) {
+                $db = getDB();
+                $bank = $queries->getBankById($bank_id);
+                if ($bank && $bank['name'] !== $name) {
+                    // Cascade rename to all historical transactions so bank balance stays consistent
+                    $renameStmt = $db->prepare("UPDATE transactions SET payment_method = ? WHERE payment_method = ?");
+                    $renameStmt->bindValue(1, $name, SQLITE3_TEXT);
+                    $renameStmt->bindValue(2, $bank['name'], SQLITE3_TEXT);
+                    $renameStmt->execute();
+                }
                 $queries->editBank($bank_id, $name, $description);
             }
         }
         elseif ($action === 'bank_delete' && $bank_id > 0) {
             $db = getDB();
-            // Check if bank has dependent wallets
-            $dependentWallets = $db->querySingle(
-                "SELECT COUNT(*) FROM wallets WHERE bank_id = " . intval($bank_id)
-            );
+            $bank = $queries->getBankById($bank_id);
 
-            if ($dependentWallets == 0) {
-                $queries->deleteBank($bank_id);
+            if ($bank) {
+                $bank_name = $bank['name'];
+                try {
+                    $db->exec('BEGIN');
+
+                    // Detach wallets so bank can be removed without deleting transactions.
+                    $detachStmt = $db->prepare("UPDATE wallets SET bank_id = NULL WHERE bank_id = ?");
+                    $detachStmt->bindValue(1, $bank_id, SQLITE3_INTEGER);
+                    if (!$detachStmt->execute()) {
+                        throw new Exception("Failed to detach wallets from bank");
+                    }
+
+                    // If a transaction is already orphaned from wallet and now this bank is removed,
+                    // it has no valid container left and can be deleted.
+                    $cleanupStmt = $db->prepare(
+                        "DELETE FROM transactions
+                         WHERE wallet_id IS NULL AND payment_method = ?"
+                    );
+                    $cleanupStmt->bindValue(1, $bank_name, SQLITE3_TEXT);
+                    if (!$cleanupStmt->execute()) {
+                        throw new Exception("Failed to clean orphaned transactions");
+                    }
+
+                    if (!$queries->deleteBank($bank_id)) {
+                        throw new Exception("Failed to delete bank");
+                    }
+
+                    $db->exec('COMMIT');
+                } catch (Exception $e) {
+                    $db->exec('ROLLBACK');
+                    error_log("Bank delete failed: " . $e->getMessage());
+                }
             }
         }
 
@@ -143,28 +205,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $name = isset($_POST['name']) ? trim($_POST['name']) : '';
             $description = isset($_POST['description']) ? trim($_POST['description']) : '';
             $wallet_type = isset($_POST['wallet_type']) ? trim($_POST['wallet_type']) : 'balance';
+            $bank_id = isset($_POST['bank_id']) ? intval($_POST['bank_id']) : 0;
+
             // Validate wallet type
             if (!in_array($wallet_type, ['budget', 'balance'])) {
                 $wallet_type = 'balance';
             }
 
-            // Wallet is now independent of bank
+            // Bank ID is optional - user can override per transaction
             if ($name) {
-                $queries->addWallet($name, 0, $description, $wallet_type);
+                $queries->addWallet($name, $bank_id, $description, $wallet_type);
             }
         }
         elseif ($action === 'wallet_edit' && $wallet_id > 0) {
             $name = isset($_POST['name']) ? trim($_POST['name']) : '';
             $description = isset($_POST['description']) ? trim($_POST['description']) : '';
             $wallet_type = isset($_POST['wallet_type']) ? trim($_POST['wallet_type']) : null;
+            $bank_id = isset($_POST['bank_id']) ? intval($_POST['bank_id']) : 0;
+
             // Validate wallet type if provided
             if ($wallet_type && !in_array($wallet_type, ['budget', 'balance'])) {
                 $wallet_type = null;
             }
 
-            // Wallet is now independent of bank
+            // Bank ID is optional - just a default reference for transactions
             if ($name) {
-                $queries->editWallet($wallet_id, $name, 0, $description, $wallet_type);
+                $queries->editWallet($wallet_id, $name, $bank_id, $description, $wallet_type);
             }
         }
         elseif ($action === 'wallet_delete' && $wallet_id > 0) {
@@ -174,15 +240,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Start transaction
                 $db->exec('BEGIN');
 
-                // Delete all transactions associated with this wallet first
-                $stmt = $db->prepare("DELETE FROM transactions WHERE wallet_id = ?");
-                $stmt->bindValue(1, $wallet_id, SQLITE3_INTEGER);
-                if (!$stmt->execute()) {
-                    throw new Exception("Failed to delete transactions");
+                // Keep transactions, but mark them orphaned from wallet.
+                $orphanStmt = $db->prepare("UPDATE transactions SET wallet_id = NULL WHERE wallet_id = ?");
+                $orphanStmt->bindValue(1, $wallet_id, SQLITE3_INTEGER);
+                if (!$orphanStmt->execute()) {
+                    throw new Exception("Failed to orphan wallet transactions");
+                }
+
+                // Remove budgets tied to deleted wallet.
+                $budgetStmt = $db->prepare("DELETE FROM budget WHERE wallet_id = ?");
+                $budgetStmt->bindValue(1, $wallet_id, SQLITE3_INTEGER);
+                if (!$budgetStmt->execute()) {
+                    throw new Exception("Failed to delete wallet budgets");
                 }
 
                 // Then delete the wallet
-                $queries->deleteWallet($wallet_id);
+                if (!$queries->deleteWallet($wallet_id)) {
+                    throw new Exception("Failed to delete wallet");
+                }
 
                 // Commit transaction
                 $db->exec('COMMIT');
@@ -193,7 +268,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        header('Location: index.php');
+        // Redirect back to the page the user was on, or home if not provided
+        $return_to = isset($_POST['return_to']) ? $_POST['return_to'] : '';
+        // Only allow relative URLs on the same host to prevent open redirect
+        $parsed = parse_url($return_to);
+        if ($return_to && empty($parsed['host'])) {
+            header('Location: ' . $return_to);
+        } else {
+            header('Location: index.php');
+        }
         exit;
     }
 
@@ -212,7 +295,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $expected_expense = isset($_POST['expected_expense']) ? floatval($_POST['expected_expense']) : 0;
             $notes = isset($_POST['notes']) ? trim($_POST['notes']) : '';
 
-            $queries->addBudget($wallet_id, $year, $month, $expected_income, $expected_expense, $notes);
+            // Block duplicate: only one budget per wallet per month
+            $existing = $queries->getBudgetByWalletMonth($wallet_id, $year, $month);
+            if ($existing) {
+                $_SESSION['flash_error'] = 'A budget already exists for this month. Use Edit to update it.';
+            } else {
+                $queries->addBudget($wallet_id, $year, $month, $expected_income, $expected_expense, $notes);
+            }
         }
         elseif ($action === 'budget_edit' && $budget_id > 0) {
             $expected_income = isset($_POST['expected_income']) ? floatval($_POST['expected_income']) : 0;
