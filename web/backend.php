@@ -307,8 +307,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $expected_income = isset($_POST['expected_income']) ? floatval($_POST['expected_income']) : 0;
             $expected_expense = isset($_POST['expected_expense']) ? floatval($_POST['expected_expense']) : 0;
             $notes = isset($_POST['notes']) ? trim($_POST['notes']) : '';
+            $year = isset($_POST['year']) ? intval($_POST['year']) : 0;
+            $month = isset($_POST['month']) ? intval($_POST['month']) : 0;
 
-            $queries->editBudget($budget_id, $expected_income, $expected_expense, $notes);
+            $existingBudget = $queries->getBudgetById($budget_id);
+            if (!$existingBudget) {
+                $_SESSION['flash_error'] = 'Budget record not found.';
+            } elseif ($year >= 1900 && $month >= 1 && $month <= 12) {
+                $targetWalletId = intval($existingBudget['wallet_id']);
+                $conflict = $queries->getBudgetByWalletMonth($targetWalletId, $year, $month);
+
+                if ($conflict && intval($conflict['id']) !== $budget_id) {
+                    $_SESSION['flash_error'] = 'A budget already exists for the selected month. Use Edit on that month instead.';
+                } else {
+                    $queries->editBudget($budget_id, $expected_income, $expected_expense, $notes, $year, $month);
+                }
+            } else {
+                $_SESSION['flash_error'] = 'Invalid month or year selected.';
+            }
         }
         elseif ($action === 'budget_delete' && $budget_id > 0) {
             $queries->deleteBudget($budget_id);
@@ -377,6 +393,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             echo json_encode($months);
             exit;
         }
+    }
+
+    // Get budget details for a specific wallet + month/year
+    if ($action === 'get_budget_for_month') {
+        $wallet_id = isset($_GET['wallet_id']) ? intval($_GET['wallet_id']) : 0;
+        $year = isset($_GET['year']) ? intval($_GET['year']) : 0;
+        $month = isset($_GET['month']) ? intval($_GET['month']) : 0;
+
+        header('Content-Type: application/json');
+
+        if ($wallet_id <= 0 || $year < 1900 || $month < 1 || $month > 12) {
+            echo json_encode(['exists' => false]);
+            exit;
+        }
+
+        $queries = new Queries();
+        $budget = $queries->getBudgetByWalletMonth($wallet_id, $year, $month);
+
+        if ($budget) {
+            echo json_encode([
+                'exists' => true,
+                'id' => intval($budget['id']),
+                'expected_income' => floatval($budget['expected_income']),
+                'expected_expense' => floatval($budget['expected_expense']),
+                'notes' => $budget['notes'] ?? ''
+            ]);
+        } else {
+            echo json_encode(['exists' => false]);
+        }
+        exit;
     }
 }
 ?>

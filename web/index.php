@@ -738,7 +738,9 @@ else {
         </div>
     </div>
     <div class="budget-container">
-        <div class="card budget-card" data-budget-id="<?= htmlspecialchars($monthBudget['id'] ?? '') ?>">
+           <div class="card budget-card"
+               data-budget-id="<?= htmlspecialchars($monthBudget['id'] ?? '') ?>"
+               data-budget-notes="<?= htmlspecialchars($monthBudget['notes'] ?? '', ENT_QUOTES) ?>">
             <div class="card-header budget-card-header">
                 <strong>📊 Budget: <?= htmlspecialchars(date('F Y', strtotime($currentMonthFormatted . '-01'))) ?></strong>
                 <?php if ($monthBudget): ?>
@@ -958,7 +960,7 @@ else {
             <input type="hidden" id="tx-action" name="action" value="tx_add">
             <input type="hidden" id="tx-wallet-id" name="wallet_id" value="<?= ($view === 'wallet' && $id > 0) ? htmlspecialchars($id) : '' ?>">
             <input type="hidden" id="tx-bank-id" name="bank_id" value="<?= ($view === 'bank' && $id > 0) ? htmlspecialchars($id) : '' ?>">
-            <input type="hidden" id="tx-budget-month" name="budget_month" value="<?= isset($_GET['month']) ? htmlspecialchars($_GET['month']) : (isset($_GET['budget_month']) ? htmlspecialchars($_GET['budget_month']) : '') ?>">>
+            <input type="hidden" id="tx-budget-month" name="budget_month" value="<?= isset($_GET['month']) ? htmlspecialchars($_GET['month']) : (isset($_GET['budget_month']) ? htmlspecialchars($_GET['budget_month']) : '') ?>">
 
             <div class="form-group">
                 <label for="m_date">Date</label>
@@ -1158,7 +1160,7 @@ else {
 
             <div class="form-group">
                 <label for="budget-notes">Notes</label>
-                <textarea id="budget-notes" name="notes" rows="3" placeholder="e.g., Planned shopping, medical bills expected..."></textarea>
+                <input id="budget-notes" type="text" name="notes" placeholder="e.g., Planned shopping, medical bills expected...">
             </div>
 
             <div style="display:flex;gap:10px;align-items:center;">

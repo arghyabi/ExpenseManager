@@ -480,6 +480,12 @@ class Queries {
     // BUDGET QUERIES
     // ====================================================
 
+    public function getBudgetById($budget_id) {
+        $stmt = $this->db->prepare("SELECT * FROM budget WHERE id = ?");
+        $stmt->bindValue(1, $budget_id, SQLITE3_INTEGER);
+        return $stmt->execute()->fetchArray(SQLITE3_ASSOC);
+    }
+
     public function getBudgetByWalletMonth($wallet_id, $year, $month) {
         $monthStr = str_pad($month, 2, '0', STR_PAD_LEFT);
         $dateStr = "$year-$monthStr";
@@ -506,7 +512,24 @@ class Queries {
         return $stmt->execute();
     }
 
-    public function editBudget($budget_id, $expected_income, $expected_expense, $notes = '') {
+    public function editBudget($budget_id, $expected_income, $expected_expense, $notes = '', $year = null, $month = null) {
+        if ($year !== null && $month !== null) {
+            $monthStr = str_pad($month, 2, '0', STR_PAD_LEFT);
+            $dateStr = "$year-$monthStr";
+
+            $stmt = $this->db->prepare(
+                "UPDATE budget
+                 SET month = ?, expected_income = ?, expected_expense = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?"
+            );
+            $stmt->bindValue(1, $dateStr, SQLITE3_TEXT);
+            $stmt->bindValue(2, $expected_income, SQLITE3_FLOAT);
+            $stmt->bindValue(3, $expected_expense, SQLITE3_FLOAT);
+            $stmt->bindValue(4, $notes, SQLITE3_TEXT);
+            $stmt->bindValue(5, $budget_id, SQLITE3_INTEGER);
+            return $stmt->execute();
+        }
+
         $stmt = $this->db->prepare(
             "UPDATE budget SET expected_income = ?, expected_expense = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
         );
