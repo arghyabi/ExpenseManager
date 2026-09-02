@@ -660,7 +660,6 @@ if ($view === 'main') {
     <hr>
 
     <!-- Bank's Monthly Summary -->
-    <h2>Bank's Monthly Summary</h2>
     <?php
     $allBankMonths = [];
     $monthlyCopy = $queries->getBankMonthlySummary($id);
@@ -675,6 +674,21 @@ if ($view === 'main') {
     $bankMonthOffset = ($bankMonthPage - 1) * $bankMonthsPerPage;
     $displayBankMonths = array_slice($allBankMonths, $bankMonthOffset, $bankMonthsPerPage);
     ?>
+
+    <div class="summary-section-header">
+        <h2 style="margin:0;">Bank's Monthly Summary</h2>
+        <?php if ($bankMonthTotalPages > 1): ?>
+        <div class="pagination-inline">
+            <?php if($bankMonthPage > 1): ?>
+                <a class="btn btn-nav-compact" href="?view=bank&id=<?= htmlspecialchars($id) ?>&bank_month_page=<?= $bankMonthPage-1 ?>">← Prev</a>
+            <?php endif; ?>
+            <span class="page-info"><?= $bankMonthPage ?> / <?= $bankMonthTotalPages ?></span>
+            <?php if($bankMonthPage < $bankMonthTotalPages): ?>
+                <a class="btn btn-nav-compact" href="?view=bank&id=<?= htmlspecialchars($id) ?>&bank_month_page=<?= $bankMonthPage+1 ?>">Next →</a>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+    </div>
 
     <div class="grid monthly-grid">
         <?php foreach ($displayBankMonths as $r):
@@ -693,22 +707,6 @@ if ($view === 'main') {
         <?php endforeach; ?>
     </div>
 
-    <!-- Bank Monthly Pagination -->
-    <?php if ($bankMonthTotalPages > 1): ?>
-    <div class="pagination-wrap">
-        <div class="pagination">
-            <?php if($bankMonthPage > 1): ?>
-                <a class="btn btn-nav-compact" href="?view=bank&id=<?= htmlspecialchars($id) ?>&bank_month_page=<?= $bankMonthPage-1 ?>">← Prev</a>
-            <?php endif; ?>
-
-            <span class="page-info">Month Page <?= $bankMonthPage ?> of <?= $bankMonthTotalPages ?> (<?= $totalBankMonths ?> months)</span>
-
-            <?php if($bankMonthPage < $bankMonthTotalPages): ?>
-                <a class="btn btn-nav-compact" href="?view=bank&id=<?= htmlspecialchars($id) ?>&bank_month_page=<?= $bankMonthPage+1 ?>">Next →</a>
-            <?php endif; ?>
-        </div>
-    </div>
-    <?php endif; ?>
 
     <hr>
 
@@ -781,6 +779,19 @@ if ($view === 'main') {
     <?php endif; ?>
     <?php if ($hasActiveFilter): ?>
     <div class="filter-result-info">Showing <?= $totalCount ?> matching transaction<?= $totalCount !== 1 ? 's' : '' ?></div>
+    <?php endif; ?>
+    <?php if (!$selectedMonth && $totalPages > 1): ?>
+    <div class="pagination-wrap" style="margin-bottom:8px;">
+        <div class="pagination">
+            <?php if($page > 1): ?>
+                <a class="btn btn-nav-compact" href="?view=bank&id=<?= htmlspecialchars($id) ?>&page=<?= $page-1 ?><?= $filterQS ?>">← Prev</a>
+            <?php endif; ?>
+            <span class="page-info"><?= $page ?> of <?= $totalPages ?> (<?= $totalCount ?>)</span>
+            <?php if($page < $totalPages): ?>
+                <a class="btn btn-nav-compact" href="?view=bank&id=<?= htmlspecialchars($id) ?>&page=<?= $page+1 ?><?= $filterQS ?>">Next →</a>
+            <?php endif; ?>
+        </div>
+    </div>
     <?php endif; ?>
     <div class="grid tx-grid">
         <?php while($r = $transactions->fetchArray(SQLITE3_ASSOC)): ?>
@@ -900,7 +911,6 @@ if ($view === 'main') {
     <?php endif; ?>
 
     <!-- Monthly Summary for this Wallet -->
-    <h2>Monthly Summary</h2>
     <?php
     $monthlySummary = $queries->getWalletMonthlySummary($id);
     $allMonths = [];
@@ -915,6 +925,21 @@ if ($view === 'main') {
     $monthOffset = ($monthPage - 1) * $monthsPerPage;
     $displayMonths = array_slice($allMonths, $monthOffset, $monthsPerPage);
     ?>
+
+    <div class="summary-section-header">
+        <h2 style="margin:0;">Monthly Summary</h2>
+        <?php if ($monthTotalPages > 1): ?>
+        <div class="pagination-inline">
+            <?php if($monthPage > 1): ?>
+                <a class="btn btn-nav-compact" href="?view=wallet&id=<?= htmlspecialchars($id) ?>&month_page=<?= $monthPage-1 ?>">← Prev</a>
+            <?php endif; ?>
+            <span class="page-info"><?= $monthPage ?> / <?= $monthTotalPages ?></span>
+            <?php if($monthPage < $monthTotalPages): ?>
+                <a class="btn btn-nav-compact" href="?view=wallet&id=<?= htmlspecialchars($id) ?>&month_page=<?= $monthPage+1 ?>">Next →</a>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+    </div>
 
     <div class="monthly-grid">
         <?php
@@ -976,22 +1001,6 @@ if ($view === 'main') {
         <?php endforeach; ?>
     </div>
 
-    <!-- Monthly Pagination -->
-    <?php if ($monthTotalPages > 1): ?>
-    <div class="pagination-wrap">
-        <div class="pagination">
-            <?php if($monthPage > 1): ?>
-                <a class="btn btn-nav-compact" href="?view=wallet&id=<?= htmlspecialchars($id) ?>&month_page=<?= $monthPage-1 ?>">← Prev</a>
-            <?php endif; ?>
-
-            <span class="page-info">Month Page <?= $monthPage ?> of <?= $monthTotalPages ?> (<?= $totalMonths ?> months)</span>
-
-            <?php if($monthPage < $monthTotalPages): ?>
-                <a class="btn btn-nav-compact" href="?view=wallet&id=<?= htmlspecialchars($id) ?>&month_page=<?= $monthPage+1 ?>">Next →</a>
-            <?php endif; ?>
-        </div>
-    </div>
-    <?php endif; ?>
 
     <!-- BUDGET TRACKER SECTION (budget wallets only) -->
     <?php if ($walletType === 'budget'): ?>
@@ -1271,6 +1280,19 @@ if ($view === 'main') {
     <?php endif; ?>
     <?php if ($hasActiveFilter): ?>
     <div class="filter-result-info">Showing <?= $totalCount ?> matching transaction<?= $totalCount !== 1 ? 's' : '' ?></div>
+    <?php endif; ?>
+    <?php if (!$selectedMonth && $totalPages > 1): ?>
+    <div class="pagination-wrap" style="margin-bottom:8px;">
+        <div class="pagination">
+            <?php if($page > 1): ?>
+                <a class="btn btn-nav-compact" href="?view=wallet&id=<?= htmlspecialchars($id) ?>&page=<?= $page-1 ?><?= $filterQS ?>">← Prev</a>
+            <?php endif; ?>
+            <span class="page-info"><?= $page ?> of <?= $totalPages ?> (<?= $totalCount ?>)</span>
+            <?php if($page < $totalPages): ?>
+                <a class="btn btn-nav-compact" href="?view=wallet&id=<?= htmlspecialchars($id) ?>&page=<?= $page+1 ?><?= $filterQS ?>">Next →</a>
+            <?php endif; ?>
+        </div>
+    </div>
     <?php endif; ?>
     <div class="tx-grid">
         <?php
