@@ -8,12 +8,13 @@
     const bankTitle = document.getElementById('bank-modal-title');
     const bankActionInput = document.getElementById('bank-action');
 
-    window.openBankModal = function(mode = 'add', bankId = null, bankName = '', description = '') {
+    window.openBankModal = function(mode = 'add', bankId = null, bankName = '', description = '', openingBalance = 0) {
         if (!bankModal) return;
 
         document.getElementById('bank-id').value = bankId || '';
         document.getElementById('bank-name').value = bankName;
         document.getElementById('bank-description').value = description;
+        document.getElementById('bank-opening-balance').value = openingBalance || 0;
         bankActionInput.value = mode === 'add' ? 'bank_add' : 'bank_edit';
         bankTitle.textContent = mode === 'add' ? 'Add Bank' : 'Edit Bank';
 
@@ -92,7 +93,8 @@
             const bankId = btn.dataset.id;
             const bankName = btn.dataset.name;
             const description = btn.dataset.description || '';
-            window.openBankModal('edit', bankId, bankName, description);
+            const openingBalance = btn.dataset.openingBalance || 0;
+            window.openBankModal('edit', bankId, bankName, description, openingBalance);
         }
     });
 

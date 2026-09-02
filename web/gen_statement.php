@@ -42,84 +42,58 @@ if ($view === 'bank') {
         $statement_period = 'Full Statement';
         $stmt = $db->prepare(
             "SELECT t.*, w.name as wallet FROM transactions t
-             LEFT JOIN wallets w ON t.wallet_id=w.id
-             WHERE (
-                t.payment_method = (SELECT name FROM banks WHERE id = ?)
-                OR ((t.payment_method IS NULL OR t.payment_method = '') AND w.bank_id = ?)
-             ) ORDER BY t.date ASC"
+             LEFT JOIN wallets w ON t.wallet_id = w.id
+             WHERE t.payment_bank_id = ? AND t.deleted_at IS NULL
+             ORDER BY t.date ASC"
         );
         $stmt->bindValue(1, $id, SQLITE3_INTEGER);
-        $stmt->bindValue(2, $id, SQLITE3_INTEGER);
         $transactions = $stmt->execute();
-        // Set opening balance to 0 for full statements
         $budget_info = ['opening_balance' => 0];
     } elseif ($type === 'monthly' && $month) {
         list($year, $monthOnly) = explode('-', $month);
         $statement_period = date('F Y', strtotime($month . '-01'));
         $stmt = $db->prepare(
             "SELECT t.*, w.name as wallet FROM transactions t
-             LEFT JOIN wallets w ON t.wallet_id=w.id
-                 WHERE (
-                     t.payment_method = (SELECT name FROM banks WHERE id = ?)
-                     OR ((t.payment_method IS NULL OR t.payment_method = '') AND w.bank_id = ?)
-                 )
-                 AND strftime('%Y-%m', t.date) = ? ORDER BY t.date ASC"
+             LEFT JOIN wallets w ON t.wallet_id = w.id
+             WHERE t.payment_bank_id = ? AND t.deleted_at IS NULL
+             AND strftime('%Y-%m', t.date) = ?
+             ORDER BY t.date ASC"
         );
         $stmt->bindValue(1, $id, SQLITE3_INTEGER);
-          $stmt->bindValue(2, $id, SQLITE3_INTEGER);
-          $stmt->bindValue(3, $month, SQLITE3_TEXT);
+        $stmt->bindValue(2, $month, SQLITE3_TEXT);
         $transactions = $stmt->execute();
-        // Calculate opening balance (balance as of end of previous month)
         $prev_month = date('Y-m', strtotime($month . '-01 -1 month'));
         $last_day_prev = date('Y-m-t', strtotime($prev_month . '-01'));
-          $stmt_open = $db->prepare(
-                "SELECT SUM(CASE WHEN type='income' THEN amount ELSE -amount END) as opening_balance
-                 FROM transactions t
-                 LEFT JOIN wallets w ON t.wallet_id=w.id
-                 WHERE (
-                     t.payment_method = (SELECT name FROM banks WHERE id = ?)
-                     OR ((t.payment_method IS NULL OR t.payment_method = '') AND w.bank_id = ?)
-                 ) AND t.date <= ?"
-          );
+        $stmt_open = $db->prepare(
+            "SELECT SUM(CASE WHEN type='income' THEN amount ELSE -amount END) as opening_balance
+             FROM transactions t
+             WHERE t.payment_bank_id = ? AND t.deleted_at IS NULL AND t.date <= ?"
+        );
         $stmt_open->bindValue(1, $id, SQLITE3_INTEGER);
-          $stmt_open->bindValue(2, $id, SQLITE3_INTEGER);
-          $stmt_open->bindValue(3, $last_day_prev, SQLITE3_TEXT);
-        $result_open = $stmt_open->execute();
-        $opening_row = $result_open->fetchArray(SQLITE3_ASSOC);
-        $opening_balance = $opening_row['opening_balance'] ?? 0;
+        $stmt_open->bindValue(2, $last_day_prev, SQLITE3_TEXT);
+        $opening_balance = $stmt_open->execute()->fetchArray(SQLITE3_ASSOC)['opening_balance'] ?? 0;
         $budget_info = ['opening_balance' => $opening_balance];
     } elseif ($type === 'custom' && $from_date && $to_date) {
         $statement_period = date('M d, Y', strtotime($from_date)) . ' to ' . date('M d, Y', strtotime($to_date));
         $stmt = $db->prepare(
             "SELECT t.*, w.name as wallet FROM transactions t
-             LEFT JOIN wallets w ON t.wallet_id=w.id
-                 WHERE (
-                     t.payment_method = (SELECT name FROM banks WHERE id = ?)
-                     OR ((t.payment_method IS NULL OR t.payment_method = '') AND w.bank_id = ?)
-                 )
-                 AND t.date BETWEEN ? AND ? ORDER BY t.date ASC"
+             LEFT JOIN wallets w ON t.wallet_id = w.id
+             WHERE t.payment_bank_id = ? AND t.deleted_at IS NULL
+             AND t.date BETWEEN ? AND ?
+             ORDER BY t.date ASC"
         );
         $stmt->bindValue(1, $id, SQLITE3_INTEGER);
-          $stmt->bindValue(2, $id, SQLITE3_INTEGER);
-          $stmt->bindValue(3, $from_date, SQLITE3_TEXT);
-          $stmt->bindValue(4, $to_date, SQLITE3_TEXT);
+        $stmt->bindValue(2, $from_date, SQLITE3_TEXT);
+        $stmt->bindValue(3, $to_date, SQLITE3_TEXT);
         $transactions = $stmt->execute();
-        // Calculate opening balance (balance before the from_date)
-          $stmt_open = $db->prepare(
-                "SELECT SUM(CASE WHEN type='income' THEN amount ELSE -amount END) as opening_balance
-                 FROM transactions t
-                 LEFT JOIN wallets w ON t.wallet_id=w.id
-                 WHERE (
-                     t.payment_method = (SELECT name FROM banks WHERE id = ?)
-                     OR ((t.payment_method IS NULL OR t.payment_method = '') AND w.bank_id = ?)
-                 ) AND t.date < ?"
-          );
+        $stmt_open = $db->prepare(
+            "SELECT SUM(CASE WHEN type='income' THEN amount ELSE -amount END) as opening_balance
+             FROM transactions t
+             WHERE t.payment_bank_id = ? AND t.deleted_at IS NULL AND t.date < ?"
+        );
         $stmt_open->bindValue(1, $id, SQLITE3_INTEGER);
-          $stmt_open->bindValue(2, $id, SQLITE3_INTEGER);
-          $stmt_open->bindValue(3, $from_date, SQLITE3_TEXT);
-        $result_open = $stmt_open->execute();
-        $opening_row = $result_open->fetchArray(SQLITE3_ASSOC);
-        $opening_balance = $opening_row['opening_balance'] ?? 0;
+        $stmt_open->bindValue(2, $from_date, SQLITE3_TEXT);
+        $opening_balance = $stmt_open->execute()->fetchArray(SQLITE3_ASSOC)['opening_balance'] ?? 0;
         $budget_info = ['opening_balance' => $opening_balance];
     }
 } else {
@@ -129,7 +103,7 @@ if ($view === 'bank') {
 
     if ($type === 'full') {
         $statement_period = 'Full Statement';
-        $stmt = $db->prepare("SELECT t.* FROM transactions t WHERE t.wallet_id = ? ORDER BY t.date ASC");
+        $stmt = $db->prepare("SELECT t.* FROM transactions t WHERE t.wallet_id = ? AND t.deleted_at IS NULL ORDER BY t.date ASC");
         $stmt->bindValue(1, $id, SQLITE3_INTEGER);
         $transactions = $stmt->execute();
         // For balance wallets, set opening balance to 0 for full statements
@@ -138,7 +112,7 @@ if ($view === 'bank') {
         }
     } elseif ($type === 'monthly' && $month) {
         $statement_period = date('F Y', strtotime($month . '-01'));
-        $stmt = $db->prepare("SELECT t.* FROM transactions t WHERE t.wallet_id = ? AND strftime('%Y-%m', t.date) = ? ORDER BY t.date ASC");
+        $stmt = $db->prepare("SELECT t.* FROM transactions t WHERE t.wallet_id = ? AND t.deleted_at IS NULL AND strftime('%Y-%m', t.date) = ? ORDER BY t.date ASC");
         $stmt->bindValue(1, $id, SQLITE3_INTEGER);
         $stmt->bindValue(2, $month, SQLITE3_TEXT);
         $transactions = $stmt->execute();
@@ -151,7 +125,7 @@ if ($view === 'bank') {
             list($year, $monthOnly) = explode('-', $month);
             $prev_month = date('Y-m', strtotime($month . '-01 -1 month'));
             $last_day_prev = date('Y-m-t', strtotime($prev_month . '-01'));
-            $stmt_open = $db->prepare("SELECT SUM(CASE WHEN type='income' THEN amount ELSE -amount END) as opening_balance FROM transactions WHERE wallet_id = ? AND date <= ?");
+            $stmt_open = $db->prepare("SELECT SUM(CASE WHEN type='income' THEN amount ELSE -amount END) as opening_balance FROM transactions WHERE wallet_id = ? AND deleted_at IS NULL AND date <= ?");
             $stmt_open->bindValue(1, $id, SQLITE3_INTEGER);
             $stmt_open->bindValue(2, $last_day_prev, SQLITE3_TEXT);
             $result_open = $stmt_open->execute();
@@ -161,7 +135,7 @@ if ($view === 'bank') {
         }
     } elseif ($type === 'custom' && $from_date && $to_date) {
         $statement_period =  date('M d, Y', strtotime($from_date)) . ' to ' . date('M d, Y', strtotime($to_date));
-        $stmt = $db->prepare("SELECT t.* FROM transactions t WHERE t.wallet_id = ? AND t.date BETWEEN ? AND ? ORDER BY t.date ASC");
+        $stmt = $db->prepare("SELECT t.* FROM transactions t WHERE t.wallet_id = ? AND t.deleted_at IS NULL AND t.date BETWEEN ? AND ? ORDER BY t.date ASC");
         $stmt->bindValue(1, $id, SQLITE3_INTEGER);
         $stmt->bindValue(2, $from_date, SQLITE3_TEXT);
         $stmt->bindValue(3, $to_date, SQLITE3_TEXT);

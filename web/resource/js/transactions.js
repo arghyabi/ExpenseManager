@@ -19,6 +19,7 @@
             const note = menuBtn.dataset.note;
             const title = menuBtn.dataset.title;
             const paymentMethod = menuBtn.dataset.paymentMethod || '';
+            const categoryId = menuBtn.dataset.category || '';
 
             // Close dropdown
             e.target.closest('.tx-menu-dropdown').classList.remove('open');
@@ -41,14 +42,20 @@
                 methodHint.textContent = 'Where the payment will be deducted from';
             }
 
-            // Set wallet (if the dropdown exists)
+            // Set wallet (if the dropdown exists); walletId may be empty for bank-direct entries
             const walletField = document.getElementById('m_wallet');
             if (walletField) {
-                walletField.value = walletId;
+                walletField.value = walletId || '';
             }
 
             document.getElementById('m_note').value = note;
             document.getElementById('m_payment_method').value = paymentMethod;
+
+            // Pre-fill category
+            const catField = document.getElementById('m_category');
+            if (catField) {
+                catField.value = categoryId;
+            }
 
             // Set action to edit
             actionInput.value = 'tx_edit';

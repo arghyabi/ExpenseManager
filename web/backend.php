@@ -44,12 +44,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $date = isset($_POST['date']) ? $_POST['date'] : '';
             $type = isset($_POST['type']) ? $_POST['type'] : '';
             $amount = isset($_POST['amount']) ? floatval($_POST['amount']) : 0;
-            $wallet = isset($_POST['wallet']) ? intval($_POST['wallet']) : 0;
+            $walletRaw = isset($_POST['wallet']) ? trim($_POST['wallet']) : '';
+            $wallet = ($walletRaw !== '' && intval($walletRaw) > 0) ? intval($walletRaw) : null;
             $note = isset($_POST['note']) ? $_POST['note'] : '';
             $title = isset($_POST['title']) ? $_POST['title'] : '';
-            $payment_method = isset($_POST['payment_method']) ? trim($_POST['payment_method']) : '';
+            $bankIdRaw = isset($_POST['payment_method']) ? intval($_POST['payment_method']) : 0;
+            $payment_bank_id = $bankIdRaw > 0 ? $bankIdRaw : null;
+            $catRaw = isset($_POST['category_id']) ? intval($_POST['category_id']) : 0;
+            $category_id = $catRaw > 0 ? $catRaw : null;
 
-            // Validate required fields and formats
             $validDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : null;
             $validType = in_array($type, ['income', 'expense']) ? $type : null;
 
@@ -59,26 +62,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 setFlashError('Invalid transaction type.');
             } elseif ($amount <= 0) {
                 setFlashError('Amount must be greater than 0.');
-            } elseif ($wallet <= 0) {
-                setFlashError('Please select a wallet.');
-            } elseif ($payment_method === '') {
+            } elseif ($payment_bank_id === null) {
                 setFlashError('Please select a bank/payment method.');
             }
 
-            if ($wallet > 0 && $amount > 0 && $validDate && $validType) {
-                $queries->addTransaction($validDate, $validType, $amount, $wallet, $note, $title, $payment_method);
+            if ($amount > 0 && $validDate && $validType && $payment_bank_id !== null) {
+                $new_id = $queries->addTransaction($validDate, $validType, $amount, $wallet, $note, $title, $payment_bank_id, $category_id);
+                $queries->auditLog('tx_add', 'transaction', $new_id,
+                    ucfirst($validType) . ' ₹' . number_format($amount, 2) . ' — ' . $title . ' on ' . $validDate);
+
+                // If this transaction was submitted from the Pay Bill modal, mark the reminder paid
+                $reminder_id_raw = isset($_POST['reminder_id']) ? intval($_POST['reminder_id']) : 0;
+                if ($reminder_id_raw > 0) {
+                    $queries->markBillReminderPaid($reminder_id_raw, $validDate);
+                }
             }
         }
         elseif ($action === 'tx_edit' && $tx_id > 0) {
             $date = isset($_POST['date']) ? $_POST['date'] : '';
             $type = isset($_POST['type']) ? $_POST['type'] : '';
             $amount = isset($_POST['amount']) ? floatval($_POST['amount']) : 0;
-            $wallet = isset($_POST['wallet']) ? intval($_POST['wallet']) : 0;
+            $walletRaw = isset($_POST['wallet']) ? trim($_POST['wallet']) : '';
+            $wallet = ($walletRaw !== '' && intval($walletRaw) > 0) ? intval($walletRaw) : null;
             $note = isset($_POST['note']) ? $_POST['note'] : '';
             $title = isset($_POST['title']) ? $_POST['title'] : '';
-            $payment_method = isset($_POST['payment_method']) ? trim($_POST['payment_method']) : '';
+            $bankIdRaw = isset($_POST['payment_method']) ? intval($_POST['payment_method']) : 0;
+            $payment_bank_id = $bankIdRaw > 0 ? $bankIdRaw : null;
+            $catRaw = isset($_POST['category_id']) ? intval($_POST['category_id']) : 0;
+            $category_id = $catRaw > 0 ? $catRaw : null;
 
-            // Validate required fields and formats
             $validDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : null;
             $validType = in_array($type, ['income', 'expense']) ? $type : null;
 
@@ -88,18 +100,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 setFlashError('Invalid transaction type.');
             } elseif ($amount <= 0) {
                 setFlashError('Amount must be greater than 0.');
-            } elseif ($wallet <= 0) {
-                setFlashError('Please select a wallet.');
-            } elseif ($payment_method === '') {
+            } elseif ($payment_bank_id === null) {
                 setFlashError('Please select a bank/payment method.');
             }
 
-            if ($wallet > 0 && $amount > 0 && $validDate && $validType) {
-                $queries->editTransaction($tx_id, $validDate, $validType, $amount, $wallet, $note, $title, $payment_method);
+            if ($amount > 0 && $validDate && $validType && $payment_bank_id !== null) {
+                $queries->editTransaction($tx_id, $validDate, $validType, $amount, $wallet, $note, $title, $payment_bank_id, $category_id);
+                $queries->auditLog('tx_edit', 'transaction', $tx_id,
+                    'Edited #' . $tx_id . ' → ' . ucfirst($validType) . ' ₹' . number_format($amount, 2) . ' — ' . $title . ' on ' . $validDate);
             }
         }
         elseif ($action === 'tx_delete' && $tx_id > 0) {
+            $tx = $queries->getTransactionById($tx_id);
             $queries->deleteTransaction($tx_id);
+            $queries->auditLog('tx_delete', 'transaction', $tx_id,
+                'Deleted #' . $tx_id . ($tx ? ' — ' . ($tx['title'] ?? '') . ' ₹' . number_format($tx['amount'], 2) . ' on ' . $tx['date'] : ''));
         }
 
         // Redirect back to the wallet or bank page
@@ -122,6 +137,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // ====================================
+    // TRANSFER ACTION
+    // ====================================
+    elseif ($action === 'transfer_add') {
+        $date       = isset($_POST['date'])         ? $_POST['date']                    : '';
+        $from_bank  = isset($_POST['from_bank_id']) ? intval($_POST['from_bank_id'])    : 0;
+        $to_bank    = isset($_POST['to_bank_id'])   ? intval($_POST['to_bank_id'])      : 0;
+        $amount     = isset($_POST['amount'])       ? floatval($_POST['amount'])        : 0;
+        $note       = isset($_POST['note'])         ? trim($_POST['note'])              : '';
+        $title      = isset($_POST['title'])        ? trim($_POST['title'])             : 'Transfer';
+        $ref_bank   = isset($_POST['ref_bank_id'])  ? intval($_POST['ref_bank_id'])     : 0;
+
+        $validDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : null;
+
+        if (!$validDate) {
+            setFlashError('Invalid date for transfer.');
+        } elseif ($from_bank <= 0 || $to_bank <= 0) {
+            setFlashError('Please select both source and destination banks.');
+        } elseif ($from_bank === $to_bank) {
+            setFlashError('Source and destination banks must be different.');
+        } elseif ($amount <= 0) {
+            setFlashError('Transfer amount must be greater than 0.');
+        } else {
+            $result = $queries->addTransfer($validDate, $from_bank, $to_bank, $amount, $note, $title);
+            if ($result) {
+                $queries->auditLog('transfer_add', 'transfer', $result[0],
+                    'Transfer ₹' . number_format($amount, 2) . ' bank #' . $from_bank . ' → bank #' . $to_bank . ' on ' . $validDate);
+            }
+        }
+
+        // Redirect back to whichever bank we were on
+        $redirect = $ref_bank > 0 ? 'index.php?view=bank&id=' . $ref_bank : 'index.php';
+        header('Location: ' . $redirect);
+        exit;
+    }
+
+    // ====================================
     // BANK ACTIONS
     // ====================================
     elseif (in_array($action, ['bank_add', 'bank_edit', 'bank_delete'])) {
@@ -130,26 +181,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'bank_add') {
             $name = isset($_POST['name']) ? trim($_POST['name']) : '';
             $description = isset($_POST['description']) ? trim($_POST['description']) : '';
+            $opening_balance = isset($_POST['opening_balance']) ? floatval($_POST['opening_balance']) : 0;
 
             if ($name) {
-                $queries->addBank($name, $description);
+                $new_bank_id = $queries->addBank($name, $description, $opening_balance);
+                $queries->auditLog('bank_add', 'bank', $new_bank_id, 'Added bank: ' . $name);
             }
         }
         elseif ($action === 'bank_edit' && $bank_id > 0) {
             $name = isset($_POST['name']) ? trim($_POST['name']) : '';
             $description = isset($_POST['description']) ? trim($_POST['description']) : '';
+            $opening_balance = isset($_POST['opening_balance']) ? floatval($_POST['opening_balance']) : 0;
 
             if ($name) {
-                $db = getDB();
-                $bank = $queries->getBankById($bank_id);
-                if ($bank && $bank['name'] !== $name) {
-                    // Cascade rename to all historical transactions so bank balance stays consistent
-                    $renameStmt = $db->prepare("UPDATE transactions SET payment_method = ? WHERE payment_method = ?");
-                    $renameStmt->bindValue(1, $name, SQLITE3_TEXT);
-                    $renameStmt->bindValue(2, $bank['name'], SQLITE3_TEXT);
-                    $renameStmt->execute();
-                }
-                $queries->editBank($bank_id, $name, $description);
+                // No rename cascade needed — transactions reference bank by id, not name
+                $queries->editBank($bank_id, $name, $description, $opening_balance);
+                $queries->auditLog('bank_edit', 'bank', $bank_id, 'Edited bank #' . $bank_id . ': ' . $name);
             }
         }
         elseif ($action === 'bank_delete' && $bank_id > 0) {
@@ -157,7 +204,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $bank = $queries->getBankById($bank_id);
 
             if ($bank) {
-                $bank_name = $bank['name'];
                 try {
                     $db->exec('BEGIN');
 
@@ -168,22 +214,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         throw new Exception("Failed to detach wallets from bank");
                     }
 
-                    // If a transaction is already orphaned from wallet and now this bank is removed,
-                    // it has no valid container left and can be deleted.
+                    // Orphan transactions that were bank-direct (no wallet) — they have
+                    // no remaining container, so delete them.
                     $cleanupStmt = $db->prepare(
-                        "DELETE FROM transactions
-                         WHERE wallet_id IS NULL AND payment_method = ?"
+                        "DELETE FROM transactions WHERE wallet_id IS NULL AND payment_bank_id = ?"
                     );
-                    $cleanupStmt->bindValue(1, $bank_name, SQLITE3_TEXT);
+                    $cleanupStmt->bindValue(1, $bank_id, SQLITE3_INTEGER);
                     if (!$cleanupStmt->execute()) {
                         throw new Exception("Failed to clean orphaned transactions");
                     }
 
+                    // Remaining transactions (those attached to a wallet) keep their
+                    // payment_bank_id but the bank row is gone — they show as orphan_bank.
                     if (!$queries->deleteBank($bank_id)) {
                         throw new Exception("Failed to delete bank");
                     }
 
                     $db->exec('COMMIT');
+                    $queries->auditLog('bank_delete', 'bank', $bank_id, 'Deleted bank #' . $bank_id . ': ' . ($bank['name'] ?? ''));
                 } catch (Exception $e) {
                     $db->exec('ROLLBACK');
                     error_log("Bank delete failed: " . $e->getMessage());
@@ -205,32 +253,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $name = isset($_POST['name']) ? trim($_POST['name']) : '';
             $description = isset($_POST['description']) ? trim($_POST['description']) : '';
             $wallet_type = isset($_POST['wallet_type']) ? trim($_POST['wallet_type']) : 'balance';
-            $bank_id = isset($_POST['bank_id']) ? intval($_POST['bank_id']) : 0;
+            $bank_id_raw = isset($_POST['bank_id']) ? intval($_POST['bank_id']) : 0;
+            $bank_id = $bank_id_raw > 0 ? $bank_id_raw : null;
+            $opening_balance = isset($_POST['opening_balance']) ? floatval($_POST['opening_balance']) : 0;
 
             // Validate wallet type
             if (!in_array($wallet_type, ['budget', 'balance'])) {
                 $wallet_type = 'balance';
             }
 
-            // Bank ID is optional - user can override per transaction
             if ($name) {
-                $queries->addWallet($name, $bank_id, $description, $wallet_type);
+                $new_wallet_id = $queries->addWallet($name, $bank_id, $description, $wallet_type, $opening_balance);
+                $queries->auditLog('wallet_add', 'wallet', $new_wallet_id, 'Added wallet: ' . $name);
             }
         }
         elseif ($action === 'wallet_edit' && $wallet_id > 0) {
             $name = isset($_POST['name']) ? trim($_POST['name']) : '';
             $description = isset($_POST['description']) ? trim($_POST['description']) : '';
             $wallet_type = isset($_POST['wallet_type']) ? trim($_POST['wallet_type']) : null;
-            $bank_id = isset($_POST['bank_id']) ? intval($_POST['bank_id']) : 0;
+            $bank_id_raw = isset($_POST['bank_id']) ? intval($_POST['bank_id']) : 0;
+            $bank_id = $bank_id_raw > 0 ? $bank_id_raw : null;
+            $opening_balance = isset($_POST['opening_balance']) ? floatval($_POST['opening_balance']) : null;
+            // If the field was submitted (even as 0), use it; if not present at all, preserve existing
+            if (!isset($_POST['opening_balance'])) {
+                $opening_balance = null; // triggers preserve in queries.php
+            }
 
             // Validate wallet type if provided
             if ($wallet_type && !in_array($wallet_type, ['budget', 'balance'])) {
                 $wallet_type = null;
             }
 
-            // Bank ID is optional - just a default reference for transactions
             if ($name) {
-                $queries->editWallet($wallet_id, $name, $bank_id, $description, $wallet_type);
+                $queries->editWallet($wallet_id, $name, $bank_id, $description, $wallet_type, $opening_balance);
+                $queries->auditLog('wallet_edit', 'wallet', $wallet_id, 'Edited wallet #' . $wallet_id . ': ' . $name);
             }
         }
         elseif ($action === 'wallet_delete' && $wallet_id > 0) {
@@ -261,6 +317,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Commit transaction
                 $db->exec('COMMIT');
+                $queries->auditLog('wallet_delete', 'wallet', $wallet_id, 'Deleted wallet #' . $wallet_id);
             } catch (Exception $e) {
                 // Rollback on error
                 $db->exec('ROLLBACK');
@@ -343,6 +400,142 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         exit;
     }
+
+    // ====================================
+    // CATEGORY ACTIONS
+    // ====================================
+    elseif (in_array($action, ['category_add', 'category_edit', 'category_delete'])) {
+        $category_id = isset($_POST['category_id']) ? intval($_POST['category_id']) : 0;
+
+        if ($action === 'category_add') {
+            $name  = isset($_POST['name'])  ? trim($_POST['name'])  : '';
+            $color = isset($_POST['color']) ? trim($_POST['color']) : '#95a5a6';
+            if ($name) {
+                $new_id = $queries->addCategory($name, $color);
+                $queries->auditLog('category_add', 'category', $new_id, json_encode(['name' => $name, 'color' => $color]));
+            }
+        }
+        elseif ($action === 'category_edit' && $category_id > 0) {
+            $name  = isset($_POST['name'])  ? trim($_POST['name'])  : '';
+            $color = isset($_POST['color']) ? trim($_POST['color']) : '#95a5a6';
+            if ($name) {
+                $queries->editCategory($category_id, $name, $color);
+                $queries->auditLog('category_edit', 'category', $category_id, json_encode(['name' => $name, 'color' => $color]));
+            }
+        }
+        elseif ($action === 'category_delete' && $category_id > 0) {
+            $queries->deleteCategory($category_id);
+            $queries->auditLog('category_delete', 'category', $category_id, null);
+        }
+
+        header('Location: index.php?view=categories');
+        exit;
+    }
+
+    // ====================================
+    // BILL REMINDER ACTIONS
+    // ====================================
+    elseif (in_array($action, ['reminder_add', 'reminder_edit', 'reminder_delete', 'reminder_toggle'])) {
+        $reminder_id = isset($_POST['reminder_id']) ? intval($_POST['reminder_id']) : 0;
+
+        if (in_array($action, ['reminder_add', 'reminder_edit'])) {
+            $title           = isset($_POST['title'])           ? trim($_POST['title'])           : '';
+            $type            = isset($_POST['type'])            ? trim($_POST['type'])             : 'expense';
+            $default_amount  = isset($_POST['default_amount'])  ? floatval($_POST['default_amount']) : 0;
+            $note            = isset($_POST['note'])            ? trim($_POST['note'])             : '';
+            $frequency       = isset($_POST['frequency'])       ? trim($_POST['frequency'])        : 'monthly';
+            $notify_day      = isset($_POST['notify_day'])      ? intval($_POST['notify_day'])     : 1;
+            $notify_month    = isset($_POST['notify_month'])    ? intval($_POST['notify_month'])   : 1;
+
+            $walletRaw = isset($_POST['wallet_id'])       ? trim($_POST['wallet_id'])       : '';
+            $wallet_id = ($walletRaw !== '' && intval($walletRaw) > 0) ? intval($walletRaw) : null;
+
+            $bankRaw         = isset($_POST['payment_bank_id']) ? intval($_POST['payment_bank_id']) : 0;
+            $payment_bank_id = $bankRaw > 0 ? $bankRaw : null;
+
+            $catRaw      = isset($_POST['category_id']) ? intval($_POST['category_id']) : 0;
+            $category_id = $catRaw > 0 ? $catRaw : null;
+
+            $validType      = in_array($type,      ['income', 'expense'])          ? $type      : null;
+            $validFreq      = in_array($frequency, ['monthly', 'yearly'])          ? $frequency : null;
+            $validDay       = ($notify_day >= 1 && $notify_day <= 28)              ? $notify_day  : null;
+            $validMonth     = ($notify_month >= 1 && $notify_month <= 12)          ? $notify_month : null;
+
+            if ($title && $validType && $validFreq && $validDay && $validMonth) {
+                if ($action === 'reminder_add') {
+                    $new_id = $queries->addBillReminder($title, $validType, $default_amount, $wallet_id, $payment_bank_id, $category_id, $note, $validFreq, $validDay, $validMonth);
+                    $queries->auditLog('reminder_add', 'bill_reminder', $new_id, 'Added bill reminder: ' . $title);
+                } elseif ($reminder_id > 0) {
+                    $queries->editBillReminder($reminder_id, $title, $validType, $default_amount, $wallet_id, $payment_bank_id, $category_id, $note, $validFreq, $validDay, $validMonth);
+                    $queries->auditLog('reminder_edit', 'bill_reminder', $reminder_id, 'Edited bill reminder: ' . $title);
+                }
+            } else {
+                setFlashError('Please fill in all required fields for the bill reminder.');
+            }
+        } elseif ($action === 'reminder_delete' && $reminder_id > 0) {
+            $queries->deleteBillReminder($reminder_id);
+            $queries->auditLog('reminder_delete', 'bill_reminder', $reminder_id, null);
+        } elseif ($action === 'reminder_toggle' && $reminder_id > 0) {
+            $active = isset($_POST['active']) ? intval($_POST['active']) : 0;
+            $queries->toggleBillReminder($reminder_id, $active);
+            $queries->auditLog('reminder_toggle', 'bill_reminder', $reminder_id, ($active ? 'Resumed' : 'Paused') . ' bill reminder #' . $reminder_id);
+        }
+
+        header('Location: index.php?view=reminders');
+        exit;
+    }
+
+    // ====================================
+    // RECURRING RULE ACTIONS
+    // ====================================
+    elseif (in_array($action, ['recurring_add', 'recurring_edit', 'recurring_delete', 'recurring_toggle'])) {
+        $rule_id = isset($_POST['rule_id']) ? intval($_POST['rule_id']) : 0;
+
+        if (in_array($action, ['recurring_add', 'recurring_edit'])) {
+            $title    = isset($_POST['title'])    ? trim($_POST['title'])            : '';
+            $type     = isset($_POST['type'])     ? trim($_POST['type'])             : '';
+            $amount   = isset($_POST['amount'])   ? floatval($_POST['amount'])       : 0;
+            $note     = isset($_POST['note'])     ? trim($_POST['note'])             : '';
+            $freq     = isset($_POST['frequency'])? trim($_POST['frequency'])        : 'monthly';
+            $next_due = isset($_POST['next_due']) ? trim($_POST['next_due'])         : '';
+
+            $walletRaw = isset($_POST['wallet_id'])      ? trim($_POST['wallet_id'])      : '';
+            $wallet_id = ($walletRaw !== '' && intval($walletRaw) > 0) ? intval($walletRaw) : null;
+
+            $bankRaw   = isset($_POST['payment_bank_id']) ? intval($_POST['payment_bank_id']) : 0;
+            $payment_bank_id = $bankRaw > 0 ? $bankRaw : null;
+
+            $catRaw      = isset($_POST['category_id']) ? intval($_POST['category_id']) : 0;
+            $category_id = $catRaw > 0 ? $catRaw : null;
+
+            $validType    = in_array($type, ['income', 'expense']) ? $type : null;
+            $validFreq    = in_array($freq, ['daily', 'weekly', 'monthly', 'yearly']) ? $freq : null;
+            $validDate    = preg_match('/^\d{4}-\d{2}-\d{2}$/', $next_due) ? $next_due : null;
+
+            if ($title && $validType && $amount > 0 && $validFreq && $validDate) {
+                $ruleDetails = '"' . $title . '" — ' . ucfirst($validType) . ' ₹' . number_format($amount, 2) . ' · ' . ucfirst($validFreq) . ' from ' . $validDate;
+                if ($action === 'recurring_add') {
+                    $new_id = $queries->addRecurringRule($title, $validType, $amount, $wallet_id, $payment_bank_id, $category_id, $note, $validFreq, $validDate);
+                    $queries->auditLog('recurring_add', 'recurring_rule', $new_id, 'Added: ' . $ruleDetails);
+                } elseif ($rule_id > 0) {
+                    $queries->editRecurringRule($rule_id, $title, $validType, $amount, $wallet_id, $payment_bank_id, $category_id, $note, $validFreq, $validDate);
+                    $queries->auditLog('recurring_edit', 'recurring_rule', $rule_id, 'Edited: ' . $ruleDetails);
+                }
+            } else {
+                setFlashError('Please fill in all required fields for the recurring rule.');
+            }
+        } elseif ($action === 'recurring_delete' && $rule_id > 0) {
+            $queries->deleteRecurringRule($rule_id);
+            $queries->auditLog('recurring_delete', 'recurring_rule', $rule_id, null);
+        } elseif ($action === 'recurring_toggle' && $rule_id > 0) {
+            $active = isset($_POST['active']) ? intval($_POST['active']) : 0;
+            $queries->toggleRecurringRule($rule_id, $active);
+            $queries->auditLog('recurring_toggle', 'recurring_rule', $rule_id, ($active ? 'Resumed' : 'Paused') . ' recurring rule #' . $rule_id);
+        }
+
+        header('Location: index.php?view=recurring');
+        exit;
+    }
 }
 
 // ====================================
@@ -393,6 +586,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             echo json_encode($months);
             exit;
         }
+    }
+
+    // Get last transaction amount for a bill reminder (pre-fills the Pay form)
+    if ($action === 'get_last_reminder_amount') {
+        $reminder_id = isset($_GET['reminder_id']) ? intval($_GET['reminder_id']) : 0;
+        header('Content-Type: application/json');
+        if ($reminder_id <= 0) { echo json_encode(['amount' => null]); exit; }
+        $queries = new Queries();
+        $reminder = $queries->getBillReminderById($reminder_id);
+        if (!$reminder) { echo json_encode(['amount' => null]); exit; }
+        $last = $queries->getLastTransactionAmountForReminder(
+            $reminder['title'],
+            $reminder['wallet_id'] ? intval($reminder['wallet_id']) : null,
+            $reminder['payment_bank_id'] ? intval($reminder['payment_bank_id']) : null
+        );
+        echo json_encode(['amount' => $last, 'default_amount' => floatval($reminder['default_amount'])]);
+        exit;
     }
 
     // Get budget details for a specific wallet + month/year

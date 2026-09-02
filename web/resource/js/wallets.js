@@ -8,13 +8,14 @@
     const walletTitle = document.getElementById('wallet-modal-title');
     const walletActionInput = document.getElementById('wallet-action');
 
-    window.openWalletModal = function(mode = 'add', walletId = null, walletName = '', description = '', walletType = 'balance', bankId = null) {
+    window.openWalletModal = function(mode = 'add', walletId = null, walletName = '', description = '', walletType = 'balance', bankId = null, openingBalance = 0) {
         if (!walletModal) return;
 
         document.getElementById('wallet-id').value = walletId || '';
         document.getElementById('wallet-name').value = walletName;
         document.getElementById('wallet-description').value = description;
         document.getElementById('wallet-type').value = walletType;
+        document.getElementById('wallet-opening-balance').value = openingBalance || 0;
         // Set bank if provided, otherwise leave as default "None"
         if (bankId && bankId > 0) {
             document.getElementById('wallet-bank').value = bankId;
@@ -104,7 +105,8 @@
             const description = btn.dataset.description || '';
             const walletType = btn.dataset.walletType || 'balance';
             const bankId = btn.dataset.bankId || null;
-            window.openWalletModal('edit', walletId, walletName, description, walletType, bankId);
+            const openingBalance = btn.dataset.openingBalance || 0;
+            window.openWalletModal('edit', walletId, walletName, description, walletType, bankId, openingBalance);
         }
     });
 
