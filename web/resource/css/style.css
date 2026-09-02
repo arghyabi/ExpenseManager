@@ -3269,3 +3269,26 @@ select option {
 .btn-reminders-nav {
     position: relative;
 }
+
+/* Summary section heading with inline pagination on the right */
+.summary-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 16px 0 10px;
+    flex-wrap: wrap;
+}
+
+.pagination-inline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.pagination-inline .page-info {
+    font-size: 0.85rem;
+    color: var(--muted);
+    white-space: nowrap;
+}
