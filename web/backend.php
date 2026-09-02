@@ -118,19 +118,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Redirect back to the wallet or bank page
-        $wallet_id = isset($_POST['wallet_id']) ? $_POST['wallet_id'] : null;
-        $bank_id = isset($_POST['bank_id']) ? $_POST['bank_id'] : null;
+        $wallet_id    = isset($_POST['wallet_id'])    ? $_POST['wallet_id']    : null;
+        $bank_id      = isset($_POST['bank_id'])      ? $_POST['bank_id']      : null;
         $budget_month = isset($_POST['budget_month']) ? $_POST['budget_month'] : null;
+        $ret_page     = isset($_POST['page'])         ? max(1, intval($_POST['page'])) : 1;
 
         $redirect = 'index.php';
         if ($wallet_id) {
             $redirect = 'index.php?view=wallet&id=' . intval($wallet_id);
+            if ($ret_page > 1) {
+                $redirect .= '&page=' . $ret_page;
+            }
             // Preserve budget_month if navigating from budget view
             if ($budget_month && preg_match('/^\d{4}-\d{2}$/', $budget_month)) {
                 $redirect .= '&budget_month=' . urlencode($budget_month);
             }
         } elseif ($bank_id) {
             $redirect = 'index.php?view=bank&id=' . intval($bank_id);
+            if ($ret_page > 1) {
+                $redirect .= '&page=' . $ret_page;
+            }
         }
         header('Location: ' . $redirect);
         exit;
