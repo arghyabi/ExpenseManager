@@ -29,10 +29,14 @@
             document.getElementById('tx-id').value = '';
             actionInput.value = 'tx_add';
             modalTitle.textContent = 'Add Transaction';
-            // Restore wallet's default bank in payment method after reset
+            // Restore default bank selection after reset
             const paymentMethodField = document.getElementById('m_payment_method');
-            if (paymentMethodField && window.walletDefaultBank) {
-                paymentMethodField.value = window.walletDefaultBank;
+            if (paymentMethodField) {
+                if (window.walletDefaultBank) {
+                    paymentMethodField.value = window.walletDefaultBank;
+                } else if (window.currentBankName) {
+                    paymentMethodField.value = window.currentBankName;
+                }
             }
         }
     };
@@ -40,10 +44,19 @@
     // Add transaction button
     if (openBtn) {
         openBtn.addEventListener('click', function() {
-            // Pre-select wallet's default bank as payment method for new transactions
+            // Pre-select wallet's default bank (wallet view) or current bank (bank view) as payment method
             const paymentMethodField = document.getElementById('m_payment_method');
-            if (paymentMethodField && window.walletDefaultBank) {
-                paymentMethodField.value = window.walletDefaultBank;
+            if (paymentMethodField) {
+                if (window.walletDefaultBank) {
+                    paymentMethodField.value = window.walletDefaultBank;
+                } else if (window.currentBankName) {
+                    paymentMethodField.value = window.currentBankName;
+                }
+            }
+            // Reset wallet to "None" for bank-direct by default on bank view
+            const walletField = document.getElementById('m_wallet');
+            if (walletField && window.currentBankName) {
+                walletField.value = '';
             }
             window.openTransactionModal();
         });

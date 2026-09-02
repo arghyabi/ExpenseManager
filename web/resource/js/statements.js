@@ -36,17 +36,21 @@ document.addEventListener('click', function(e) {
         const id = btn.getAttribute('data-id');
         const name = btn.getAttribute('data-name');
         const description = btn.getAttribute('data-description');
+        const openingBalance = btn.getAttribute('data-opening-balance') || 0;
 
-        document.getElementById('bank-id').value = id;
-        document.getElementById('bank-name').value = name;
-        document.getElementById('bank-description').value = description;
-        document.getElementById('bank-modal-overlay').classList.add('open');
+        window.openBankModal('edit', id, name, description, openingBalance);
 
         document.querySelectorAll('.bank-menu-dropdown').forEach(d => d.classList.remove('open'));
     }
 
     if (e.target.closest('.bank-full-statement-btn')) {
         downloadFullBankStatement();
+        document.querySelectorAll('.bank-menu-dropdown').forEach(d => d.classList.remove('open'));
+    }
+
+    if (e.target.closest('.bank-full-csv-btn')) {
+        const bankId = getCurrentBankId();
+        if (bankId) window.location.href = `export_csv.php?view=bank&id=${bankId}&type=full`;
         document.querySelectorAll('.bank-menu-dropdown').forEach(d => d.classList.remove('open'));
     }
 
@@ -70,14 +74,21 @@ document.addEventListener('click', function(e) {
         const walletType = btn.getAttribute('data-wallet-type');
         const description = btn.getAttribute('data-description');
         const bankId = btn.getAttribute('data-bank-id');
+        const openingBalance = btn.getAttribute('data-opening-balance') || 0;
 
-        window.openWalletModal('edit', id, name, description, walletType, bankId);
+        window.openWalletModal('edit', id, name, description, walletType, bankId, openingBalance);
 
         document.querySelectorAll('.wallet-menu-dropdown').forEach(d => d.classList.remove('open'));
     }
 
     if (e.target.closest('.wallet-full-statement-btn')) {
         downloadFullWalletStatement();
+        document.querySelectorAll('.wallet-menu-dropdown').forEach(d => d.classList.remove('open'));
+    }
+
+    if (e.target.closest('.wallet-full-csv-btn')) {
+        const walletId = getCurrentWalletId();
+        if (walletId) window.location.href = `export_csv.php?view=wallet&id=${walletId}&type=full`;
         document.querySelectorAll('.wallet-menu-dropdown').forEach(d => d.classList.remove('open'));
     }
 
@@ -160,60 +171,98 @@ function openWalletMonthlyModal() {
         });
 }
 
-// Download Bank Monthly Statement
+// Download Bank Monthly Statement (PDF)
 function downloadBankMonthlyStatement(e) {
     e.preventDefault();
     const bankId = getCurrentBankId();
     const month = document.getElementById('bank-month-select').value;
-
     if (bankId && month) {
         window.location.href = `gen_statement.php?view=bank&id=${bankId}&type=monthly&month=${month}`;
         document.getElementById('bank-monthly-statement-modal').classList.remove('open');
     }
 }
 
-// Download Wallet Monthly Statement
+// Download Bank Monthly Statement (CSV)
+function downloadBankMonthlyCsv(e) {
+    e.preventDefault();
+    const bankId = getCurrentBankId();
+    const month = document.getElementById('bank-month-select').value;
+    if (bankId && month) {
+        window.location.href = `export_csv.php?view=bank&id=${bankId}&type=monthly&month=${month}`;
+        document.getElementById('bank-monthly-statement-modal').classList.remove('open');
+    }
+}
+
+// Download Wallet Monthly Statement (PDF)
 function downloadWalletMonthlyStatement(e) {
     e.preventDefault();
     const walletId = getCurrentWalletId();
     const month = document.getElementById('wallet-month-select').value;
-
     if (walletId && month) {
         window.location.href = `gen_statement.php?view=wallet&id=${walletId}&type=monthly&month=${month}`;
         document.getElementById('wallet-monthly-statement-modal').classList.remove('open');
     }
 }
 
-// Download Bank Custom Range Statement
+// Download Wallet Monthly Statement (CSV)
+function downloadWalletMonthlyCsv(e) {
+    e.preventDefault();
+    const walletId = getCurrentWalletId();
+    const month = document.getElementById('wallet-month-select').value;
+    if (walletId && month) {
+        window.location.href = `export_csv.php?view=wallet&id=${walletId}&type=monthly&month=${month}`;
+        document.getElementById('wallet-monthly-statement-modal').classList.remove('open');
+    }
+}
+
+// Download Bank Custom Range Statement (PDF)
 function downloadBankCustomRange(e) {
     e.preventDefault();
     const bankId = getCurrentBankId();
     const fromDate = document.getElementById('bank-from-date').value;
     const toDate = document.getElementById('bank-to-date').value;
-
     if (bankId && fromDate && toDate) {
-        if (new Date(fromDate) > new Date(toDate)) {
-            alert('From Date must be before To Date');
-            return;
-        }
+        if (new Date(fromDate) > new Date(toDate)) { alert('From Date must be before To Date'); return; }
         window.location.href = `gen_statement.php?view=bank&id=${bankId}&type=custom&from_date=${fromDate}&to_date=${toDate}`;
         document.getElementById('bank-custom-range-modal').classList.remove('open');
     }
 }
 
-// Download Wallet Custom Range Statement
+// Download Bank Custom Range (CSV)
+function downloadBankCustomRangeCsv(e) {
+    e.preventDefault();
+    const bankId = getCurrentBankId();
+    const fromDate = document.getElementById('bank-from-date').value;
+    const toDate = document.getElementById('bank-to-date').value;
+    if (bankId && fromDate && toDate) {
+        if (new Date(fromDate) > new Date(toDate)) { alert('From Date must be before To Date'); return; }
+        window.location.href = `export_csv.php?view=bank&id=${bankId}&type=custom&from_date=${fromDate}&to_date=${toDate}`;
+        document.getElementById('bank-custom-range-modal').classList.remove('open');
+    }
+}
+
+// Download Wallet Custom Range Statement (PDF)
 function downloadWalletCustomRange(e) {
     e.preventDefault();
     const walletId = getCurrentWalletId();
     const fromDate = document.getElementById('wallet-from-date').value;
     const toDate = document.getElementById('wallet-to-date').value;
-
     if (walletId && fromDate && toDate) {
-        if (new Date(fromDate) > new Date(toDate)) {
-            alert('From Date must be before To Date');
-            return;
-        }
+        if (new Date(fromDate) > new Date(toDate)) { alert('From Date must be before To Date'); return; }
         window.location.href = `gen_statement.php?view=wallet&id=${walletId}&type=custom&from_date=${fromDate}&to_date=${toDate}`;
+        document.getElementById('wallet-custom-range-modal').classList.remove('open');
+    }
+}
+
+// Download Wallet Custom Range (CSV)
+function downloadWalletCustomRangeCsv(e) {
+    e.preventDefault();
+    const walletId = getCurrentWalletId();
+    const fromDate = document.getElementById('wallet-from-date').value;
+    const toDate = document.getElementById('wallet-to-date').value;
+    if (walletId && fromDate && toDate) {
+        if (new Date(fromDate) > new Date(toDate)) { alert('From Date must be before To Date'); return; }
+        window.location.href = `export_csv.php?view=wallet&id=${walletId}&type=custom&from_date=${fromDate}&to_date=${toDate}`;
         document.getElementById('wallet-custom-range-modal').classList.remove('open');
     }
 }

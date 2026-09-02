@@ -59,12 +59,69 @@ def apply_migrations(files):
 
     applied = set(r[0] for r in cur.execute("SELECT version FROM schema_version"))
 
+    # Pre-scan: some migration files declare that they supersede earlier ones by
+    # containing "INSERT OR IGNORE INTO schema_version(version) VALUES (...)" lines.
+    # Register those early so the superseded files are skipped before they run.
+    for file in files:
+        if file in applied:
+            continue
+        filepath = os.path.join(MIGRATIONS_DIR, file)
+        with open(filepath) as f:
+            for line in f:
+                line = line.strip()
+                if line.upper().startswith("INSERT OR IGNORE INTO SCHEMA_VERSION"):
+                    import re
+                    m = re.search(r"VALUES\s*\(\s*'([^']+)'\s*\)", line, re.IGNORECASE)
+                    if m:
+                        superseded = m.group(1)
+                        if superseded not in applied:
+                            cur.execute(
+                                "INSERT OR IGNORE INTO schema_version(version) VALUES(?)",
+                                (superseded,)
+                            )
+                            applied.add(superseded)
+                            print(f"  [superseded] '{superseded}' marked applied by '{file}'")
+    conn.commit()
+
     for file in files:
         if file not in applied:
             print("Applying", file)
             with open(os.path.join(MIGRATIONS_DIR, file)) as f:
-                conn.executescript(f.read())
+                sql = f.read()
 
+            # Split on semicolons so each statement runs individually.
+            # This allows ALTER TABLE statements that may already be applied
+            # (e.g. adding a column that already exists) to be skipped rather
+            # than aborting the entire migration.
+            statements = [s.strip() for s in sql.split(';') if s.strip()]
+            for stmt in statements:
+                # Skip pure comment blocks
+                non_comment = '\n'.join(
+                    line for line in stmt.splitlines()
+                    if not line.strip().startswith('--')
+                ).strip()
+                if not non_comment:
+                    continue
+                try:
+                    conn.execute(stmt)
+                except Exception as e:
+                    err = str(e).lower()
+                    is_alter = non_comment.upper().startswith('ALTER TABLE')
+                    # Tolerate benign ALTER TABLE failures:
+                    #   - "duplicate column"   : column already exists (idempotent re-run)
+                    #   - "already exists"     : index/table already exists
+                    #   - "no such table"      : table doesn't exist yet; a later migration
+                    #                            will create it with the column included
+                    if 'duplicate column' in err or 'already exists' in err:
+                        print(f"  [skip] {stmt[:60].strip()!r} — {e}")
+                    elif is_alter and 'no such table' in err:
+                        print(f"  [skip] {stmt[:60].strip()!r} — {e}")
+                    else:
+                        conn.rollback()
+                        conn.close()
+                        raise RuntimeError(f"Migration '{file}' failed on statement:\n{stmt}\nError: {e}")
+
+            conn.commit()
             cur.execute(
                 "INSERT INTO schema_version(version) VALUES(?)",
                 (file,)
