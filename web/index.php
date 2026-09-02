@@ -2215,6 +2215,7 @@ if ($view === 'main') {
             <input type="hidden" id="tx-wallet-id" name="wallet_id" value="<?= ($view === 'wallet' && $id > 0) ? htmlspecialchars($id) : '' ?>">
             <input type="hidden" id="tx-bank-id" name="bank_id" value="<?= ($view === 'bank' && $id > 0) ? htmlspecialchars($id) : '' ?>">
             <input type="hidden" id="tx-budget-month" name="budget_month" value="<?= isset($_GET['month']) ? htmlspecialchars($_GET['month']) : (isset($_GET['budget_month']) ? htmlspecialchars($_GET['budget_month']) : '') ?>">
+            <input type="hidden" name="page" value="<?= isset($_GET['page']) ? intval($_GET['page']) : 1 ?>">
 
             <div class="form-group">
                 <label for="m_date">Date</label>
