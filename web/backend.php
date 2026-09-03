@@ -157,6 +157,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $note        = isset($_POST['note'])         ? trim($_POST['note'])           : '';
         $title       = isset($_POST['title'])        ? trim($_POST['title'])          : 'Transfer';
         $ref_bank    = isset($_POST['ref_bank_id'])  ? intval($_POST['ref_bank_id'])  : 0;
+        $wallet_cat  = isset($_POST['wallet_category_id']) && $_POST['wallet_category_id'] !== ''
+                       ? intval($_POST['wallet_category_id']) : null;
 
         $validDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : null;
 
@@ -182,15 +184,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $queries->auditLog('transfer_add', 'transfer', $result[0],
                         'Transfer ₹' . number_format($amount, 2) . ' bank #' . $from_bank . ' → bank #' . $to_bank . ' on ' . $validDate);
                 }
-                // Scenario 1 extension: also credit the chosen wallet (income, linked to to_bank)
+                // Scenario 1 extension: also credit the chosen wallet
+                // payment_bank_id intentionally NULL — bank balance already updated by addTransfer above.
+                // transfer_pair_id links to the debit leg so the Transfer badge shows in wallet view.
                 if ($to_wallet > 0) {
-                    $wt_id = $queries->addTransaction($validDate, 'income', $amount, $to_wallet, $note, $title, $to_bank, null);
+                    $wt_id = $queries->addTransaction($validDate, 'income', $amount, $to_wallet, $note, $title, null, $wallet_cat);
+                    if ($wt_id && $result) {
+                        // Link wallet entry to the bank debit leg so Transfer badge appears in wallet view
+                        $queries->setTransferPairId($wt_id, $result[0]);
+                    }
                     $queries->auditLog('tx_add', 'transaction', $wt_id,
                         'Income ₹' . number_format($amount, 2) . ' → wallet #' . $to_wallet . ' (transfer credit) on ' . $validDate);
                 }
             } else {
                 // Scenario 2: no destination bank — wallet-only income, no bank balance change
-                $wt_id = $queries->addTransaction($validDate, 'income', $amount, $to_wallet, $note, $title, null, null);
+                $wt_id = $queries->addTransaction($validDate, 'income', $amount, $to_wallet, $note, $title, null, $wallet_cat);
                 $queries->auditLog('tx_add', 'transaction', $wt_id,
                     'Income ₹' . number_format($amount, 2) . ' → wallet #' . $to_wallet . ' (wallet direct) on ' . $validDate);
             }
