@@ -3013,6 +3013,7 @@ select option {
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 16px;
     margin-bottom: 24px;
+    align-items: stretch;
 }
 
 .dash-chart-box {
@@ -3020,13 +3021,83 @@ select option {
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 14px 16px 10px;
+    display: flex;
+    flex-direction: column;
+}
+
+.dash-chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
 }
 
 .dash-chart-title {
     font-weight: 700;
     font-size: 0.92rem;
     color: var(--text);
-    margin-bottom: 6px;
+}
+
+.dash-range-select {
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--input-border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    outline: none;
+    width: auto;
+    flex-shrink: 0;
+    align-self: center;
+}
+
+.dash-range-select:focus {
+    border-color: var(--primary);
+}
+
+.dash-svg-wrap {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.dash-tooltip {
+    position: absolute;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    font-size: 0.8rem;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.dash-tooltip--visible {
+    display: flex;
+}
+
+.dash-tip-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.dash-tip-label {
+    color: var(--muted);
+}
+
+.dash-tip-value {
+    color: var(--text);
+    font-weight: 700;
 }
 
 .dash-chart-legend {
@@ -3048,7 +3119,7 @@ select option {
 
 .dash-svg {
     width: 100%;
-    height: auto;
+    flex: 1;
     display: block;
     overflow: visible;
 }
@@ -3065,11 +3136,20 @@ select option {
     display: flex;
     align-items: center;
     gap: 8px;
+    padding-bottom: 8px;
+    margin-bottom: 2px;
+    border-bottom: 1px solid var(--border);
+}
+
+.dash-cat-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: 0;
 }
 
 .dash-cat-name {
-    width: 130px;
-    min-width: 100px;
+    width: 120px;
+    min-width: 80px;
     flex-shrink: 0;
     font-size: 0.83rem;
     display: flex;
@@ -3080,11 +3160,20 @@ select option {
     white-space: nowrap;
 }
 
-.dash-cat-bar-wrap {
+/* stacks expense bar on top of income bar */
+.dash-cat-bars {
     flex: 1;
-    background: rgba(0,0,0,0.07);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.dash-cat-bar-wrap {
+    width: 100%;
+    background: var(--border);
     border-radius: 4px;
-    height: 12px;
+    height: 9px;
     overflow: hidden;
 }
 
@@ -3095,12 +3184,16 @@ select option {
     min-width: 4px;
 }
 
-.dash-cat-amount {
-    font-size: 0.82rem;
-    font-weight: 700;
-    min-width: 52px;
-    text-align: right;
+/* stacks expense amount on top of income amount */
+.dash-cat-amounts {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
     flex-shrink: 0;
+    min-width: 58px;
+    font-size: 0.78rem;
+    font-weight: 700;
 }
 
 /* ===================== AUDIT LOG ===================== */

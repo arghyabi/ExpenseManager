@@ -164,9 +164,13 @@ else {
 # -----------------------------------------------------------------------
 $dashMonthly  = [];
 $dashCategory = [];
+$dashRange    = 6; // default
 if ($view === 'main') {
-    $dashMonthly  = $queries->getGlobalMonthlySummary(6);
-    $dashCategory = $queries->getGlobalCategoryBreakdown(6);
+    $validRanges = [1, 3, 6, 12, 0]; // 0 = all time
+    $dashRange   = isset($_GET['mrange']) ? intval($_GET['mrange']) : 6;
+    if (!in_array($dashRange, $validRanges)) $dashRange = 6;
+    $dashMonthly  = $queries->getGlobalMonthlySummary($dashRange);
+    $dashCategory = $queries->getGlobalCategoryBreakdown(8, $dashRange);
 }
 
 # -----------------------------------------------------------------------
@@ -336,6 +340,7 @@ if ($view === 'main') {
 
     <!-- ─── DASHBOARD CHARTS ─────────────────────────────────── -->
     <?php if (!empty($dashMonthly) || !empty($dashCategory)): ?>
+
     <div class="dashboard-charts">
 
         <?php if (!empty($dashMonthly)):
@@ -347,7 +352,7 @@ if ($view === 'main') {
             $maxVal = $maxVal > 0 ? $maxVal : 1;
 
             $chartW   = 540;   // SVG viewBox width
-            $chartH   = 160;   // SVG viewBox height
+            $chartH   = 240;   // SVG viewBox height
             $padL      = 58;   // left padding for y-axis labels
             $padB      = 30;   // bottom padding for x-axis labels
             $padT      = 10;   // top padding
@@ -363,12 +368,22 @@ if ($view === 'main') {
             $yTickStep = $maxVal / $ySteps;
         ?>
         <div class="dash-chart-box">
-            <div class="dash-chart-title">Monthly Overview — Last <?= $nMonths ?> Months</div>
+            <div class="dash-chart-header">
+                <span class="dash-chart-title">Monthly Overview — Last <?= $dashRange === 0 ? 'All' : $nMonths ?> Month<?= ($dashRange !== 1 && $dashRange !== 0) ? 's' : ($dashRange === 0 ? 's' : '') ?></span>
+                <form method="GET" action="" style="margin:0;display:contents;">
+                    <select name="mrange" class="dash-range-select" onchange="this.form.submit()" aria-label="Select time range">
+                        <?php foreach ([1 => '1 Month', 3 => '3 Months', 6 => '6 Months', 12 => '1 Year', 0 => 'All Time'] as $rv => $rl): ?>
+                        <option value="<?= $rv ?>"<?= $dashRange === $rv ? ' selected' : '' ?>><?= $rl ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </form>
+            </div>
             <div class="dash-chart-legend">
                 <span class="dash-legend-dot" style="background:#27ae60;"></span> Income
                 &nbsp;
                 <span class="dash-legend-dot" style="background:#e74c3c;"></span> Expense
             </div>
+            <div class="dash-svg-wrap">
             <svg viewBox="0 0 <?= $chartW ?> <?= $chartH ?>" class="dash-svg" aria-label="Monthly income and expense chart">
 
                 <?php for ($yi = 0; $yi <= $ySteps; $yi++):
@@ -396,15 +411,19 @@ if ($view === 'main') {
                 <!-- income bar -->
                 <rect x="<?= round($incX, 1) ?>" y="<?= round($incY, 1) ?>"
                       width="<?= $barW ?>" height="<?= round($incH, 1) ?>"
-                      fill="#27ae60" rx="2" opacity="0.9">
-                    <title>Income <?= $label ?>: ₹<?= number_format($m['income'], 2) ?></title>
-                </rect>
+                      fill="#27ae60" rx="2" opacity="0.9"
+                      class="dash-bar"
+                      data-label="Income · <?= $label ?>"
+                      data-value="₹<?= number_format($m['income'], 2) ?>"
+                      data-color="#27ae60"/>
                 <!-- expense bar -->
                 <rect x="<?= round($expX, 1) ?>" y="<?= round($expY, 1) ?>"
                       width="<?= $barW ?>" height="<?= round($expH, 1) ?>"
-                      fill="#e74c3c" rx="2" opacity="0.9">
-                    <title>Expense <?= $label ?>: ₹<?= number_format($m['expense'], 2) ?></title>
-                </rect>
+                      fill="#e74c3c" rx="2" opacity="0.9"
+                      class="dash-bar"
+                      data-label="Expense · <?= $label ?>"
+                      data-value="₹<?= number_format($m['expense'], 2) ?>"
+                      data-color="#e74c3c"/>
                 <!-- x-axis label -->
                 <text x="<?= round($cx, 1) ?>" y="<?= $chartH - 5 ?>"
                       text-anchor="middle" font-size="9" fill="var(--muted)"><?= $label ?></text>
@@ -415,32 +434,64 @@ if ($view === 'main') {
                       x2="<?= $chartW - 10 ?>" y2="<?= $padT + $plotH ?>"
                       stroke="var(--border)" stroke-width="1"/>
             </svg>
+            <div class="dash-tooltip" id="dash-tooltip"></div>
+            </div>
         </div>
         <?php endif; ?>
 
         <?php if (!empty($dashCategory)):
-            $maxCat = max(array_column($dashCategory, 'total_expense'));
+            $maxCat = max(array_column($dashCategory, 'total'));
             $maxCat = $maxCat > 0 ? $maxCat : 1;
         ?>
         <div class="dash-chart-box">
-            <div class="dash-chart-title">Top Spending Categories</div>
+            <div class="dash-chart-header">
+                <span class="dash-chart-title">Top Categories</span>
+                <form method="GET" action="" style="margin:0;display:contents;">
+                    <select name="mrange" class="dash-range-select" onchange="this.form.submit()" aria-label="Select time range">
+                        <?php foreach ([1 => '1 Month', 3 => '3 Months', 6 => '6 Months', 12 => '1 Year', 0 => 'All Time'] as $rv => $rl): ?>
+                        <option value="<?= $rv ?>"<?= $dashRange === $rv ? ' selected' : '' ?>><?= $rl ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </form>
+            </div>
+            <!-- legend -->
+            <div class="dash-chart-legend" style="margin-bottom:10px;">
+                <span class="dash-legend-dot" style="background:#e74c3c;"></span> Expense
+                &nbsp;
+                <span class="dash-legend-dot" style="background:#27ae60;"></span> Income
+            </div>
             <div class="dash-cat-list">
                 <?php foreach ($dashCategory as $cat):
-                    $pct = round(100 * $cat['total_expense'] / $maxCat);
-                    $label = $cat['total_expense'] >= 100000
-                        ? '₹' . round($cat['total_expense'] / 1000) . 'k'
-                        : '₹' . number_format($cat['total_expense'], 0);
+                    $pctExp = $cat['total'] > 0 ? round(100 * $cat['total_expense'] / $maxCat) : 0;
+                    $pctInc = $cat['total'] > 0 ? round(100 * $cat['total_income']  / $maxCat) : 0;
+                    $fmtExp = $cat['total_expense'] >= 100000 ? '₹' . round($cat['total_expense']/1000) . 'k' : '₹' . number_format($cat['total_expense'], 0);
+                    $fmtInc = $cat['total_income']  >= 100000 ? '₹' . round($cat['total_income'] /1000) . 'k' : '₹' . number_format($cat['total_income'],  0);
                 ?>
                 <div class="dash-cat-row">
                     <span class="dash-cat-name">
                         <span class="cat-color-dot" style="background:<?= htmlspecialchars($cat['category_color']) ?>;"></span>
                         <?= htmlspecialchars($cat['category_name']) ?>
                     </span>
-                    <div class="dash-cat-bar-wrap">
-                        <div class="dash-cat-bar-fill"
-                             style="width:<?= $pct ?>%;background:<?= htmlspecialchars($cat['category_color']) ?>;"></div>
+                    <div class="dash-cat-bars">
+                        <?php if ($cat['total_expense'] > 0): ?>
+                        <div class="dash-cat-bar-wrap" title="Expense: <?= $fmtExp ?>">
+                            <div class="dash-cat-bar-fill" style="width:<?= $pctExp ?>%;background:#e74c3c;"></div>
+                        </div>
+                        <?php endif; ?>
+                        <?php if ($cat['total_income'] > 0): ?>
+                        <div class="dash-cat-bar-wrap" title="Income: <?= $fmtInc ?>">
+                            <div class="dash-cat-bar-fill" style="width:<?= $pctInc ?>%;background:#27ae60;"></div>
+                        </div>
+                        <?php endif; ?>
                     </div>
-                    <span class="dash-cat-amount"><?= $label ?></span>
+                    <div class="dash-cat-amounts">
+                        <?php if ($cat['total_expense'] > 0): ?>
+                        <span style="color:#e74c3c;"><?= $fmtExp ?></span>
+                        <?php endif; ?>
+                        <?php if ($cat['total_income'] > 0): ?>
+                        <span style="color:#27ae60;"><?= $fmtInc ?></span>
+                        <?php endif; ?>
+                    </div>
                 </div>
                 <?php endforeach; ?>
             </div>
@@ -450,6 +501,34 @@ if ($view === 'main') {
     </div>
     <?php endif; ?>
     <!-- ─── END DASHBOARD CHARTS ─────────────────────────────── -->
+
+    <script>
+    (function() {
+        var tip = document.getElementById('dash-tooltip');
+        if (!tip) return;
+        document.querySelectorAll('.dash-bar').forEach(function(bar) {
+            bar.addEventListener('mouseenter', function(e) {
+                tip.innerHTML =
+                    '<span class="dash-tip-dot" style="background:' + this.dataset.color + '"></span>' +
+                    '<span class="dash-tip-label">' + this.dataset.label + '</span>' +
+                    '<strong class="dash-tip-value">' + this.dataset.value + '</strong>';
+                tip.classList.add('dash-tooltip--visible');
+            });
+            bar.addEventListener('mousemove', function(e) {
+                var wrap = tip.parentElement.getBoundingClientRect();
+                var x = e.clientX - wrap.left + 10;
+                var y = e.clientY - wrap.top - 42;
+                // keep tooltip within wrap bounds
+                if (x + tip.offsetWidth > wrap.width - 4) x = e.clientX - wrap.left - tip.offsetWidth - 10;
+                tip.style.left = x + 'px';
+                tip.style.top  = y + 'px';
+            });
+            bar.addEventListener('mouseleave', function() {
+                tip.classList.remove('dash-tooltip--visible');
+            });
+        });
+    })();
+    </script>
 
     <!-- Banks Grid -->
     <h2>Banks</h2>
