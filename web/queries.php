@@ -475,9 +475,10 @@ class Queries {
      * Only counts bank-level transactions (payment_bank_id IS NOT NULL).
      * Returns array ordered oldest → newest.
      */
+    // $months = 0 means all time
     public function getGlobalMonthlySummary($months = 6) {
-        $stmt = $this->db->prepare(
-            "SELECT
+        if ($months === 0) {
+            $sql = "SELECT
                 strftime('%Y', t.date)  AS year,
                 strftime('%m', t.date)  AS month,
                 SUM(CASE WHEN t.type='income'  AND t.transfer_pair_id IS NULL THEN t.amount ELSE 0 END) AS income,
@@ -486,14 +487,29 @@ class Queries {
              WHERE t.payment_bank_id IS NOT NULL
                AND t.transfer_pair_id IS NULL
                AND t.deleted_at IS NULL
-               AND t.date >= date('now', '-' || ? || ' months', 'start of month')
              GROUP BY year, month
-             ORDER BY year ASC, month ASC
-             LIMIT ?"
-        );
-        $stmt->bindValue(1, $months, SQLITE3_INTEGER);
-        $stmt->bindValue(2, $months, SQLITE3_INTEGER);
-        $result = $stmt->execute();
+             ORDER BY year ASC, month ASC";
+            $result = $this->db->query($sql);
+        } else {
+            $stmt = $this->db->prepare(
+                "SELECT
+                    strftime('%Y', t.date)  AS year,
+                    strftime('%m', t.date)  AS month,
+                    SUM(CASE WHEN t.type='income'  AND t.transfer_pair_id IS NULL THEN t.amount ELSE 0 END) AS income,
+                    SUM(CASE WHEN t.type='expense' AND t.transfer_pair_id IS NULL THEN t.amount ELSE 0 END) AS expense
+                 FROM transactions t
+                 WHERE t.payment_bank_id IS NOT NULL
+                   AND t.transfer_pair_id IS NULL
+                   AND t.deleted_at IS NULL
+                   AND t.date >= date('now', '-' || ? || ' months', 'start of month')
+                 GROUP BY year, month
+                 ORDER BY year ASC, month ASC
+                 LIMIT ?"
+            );
+            $stmt->bindValue(1, $months, SQLITE3_INTEGER);
+            $stmt->bindValue(2, $months, SQLITE3_INTEGER);
+            $result = $stmt->execute();
+        }
         $rows = [];
         while ($r = $result->fetchArray(SQLITE3_ASSOC)) {
             $rows[] = $r;
@@ -502,27 +518,28 @@ class Queries {
     }
 
     /**
-     * Global top-N expense categories (all time, excludes transfers).
-     * Returns array ordered by total_expense DESC.
+     * Global top-N categories by total activity (expense + income), optionally filtered by month range.
+     * Returns total_expense, total_income, and total (sum of both) per category.
+     * $months = 0 means all time.
      */
-    public function getGlobalCategoryBreakdown($limit = 6) {
-        $stmt = $this->db->prepare(
-            "SELECT
+    public function getGlobalCategoryBreakdown($limit = 6, $months = 0) {
+        $dateFilter = $months > 0 ? "AND t.date >= date('now', '-' || $months || ' months', 'start of month')" : '';
+        $sql = "SELECT
                 COALESCE(c.name,  'Uncategorised') AS category_name,
                 COALESCE(c.color, '#95a5a6')       AS category_color,
-                SUM(t.amount)                      AS total_expense,
-                COUNT(*)                           AS tx_count
+                SUM(CASE WHEN t.type='expense' THEN t.amount ELSE 0 END) AS total_expense,
+                SUM(CASE WHEN t.type='income'  THEN t.amount ELSE 0 END) AS total_income,
+                SUM(t.amount)                                             AS total,
+                COUNT(*)                                                  AS tx_count
              FROM transactions t
              LEFT JOIN categories c ON c.id = t.category_id
-             WHERE t.type = 'expense'
-               AND t.transfer_pair_id IS NULL
+             WHERE t.transfer_pair_id IS NULL
                AND t.deleted_at IS NULL
+               $dateFilter
              GROUP BY t.category_id
-             ORDER BY total_expense DESC
-             LIMIT ?"
-        );
-        $stmt->bindValue(1, $limit, SQLITE3_INTEGER);
-        $result = $stmt->execute();
+             ORDER BY total DESC
+             LIMIT $limit";
+        $result = $this->db->query($sql);
         $rows = [];
         while ($r = $result->fetchArray(SQLITE3_ASSOC)) {
             $rows[] = $r;
