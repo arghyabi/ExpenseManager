@@ -775,19 +775,35 @@ class Queries {
         return $stmt->execute();
     }
 
-    public function getAuditLog($limit = 100, $entity_type = '') {
+    public function getAuditCount($entity_type = '') {
+        if ($entity_type) {
+            $stmt = $this->db->prepare(
+                "SELECT COUNT(*) AS cnt FROM audit_log WHERE entity_type = ?"
+            );
+            $stmt->bindValue(1, $entity_type, SQLITE3_TEXT);
+        } else {
+            $stmt = $this->db->prepare("SELECT COUNT(*) AS cnt FROM audit_log");
+        }
+        $result = $stmt->execute();
+        $row = $result->fetchArray(SQLITE3_ASSOC);
+        return (int)($row['cnt'] ?? 0);
+    }
+
+    public function getAuditLog($limit = 50, $entity_type = '', $offset = 0) {
         if ($entity_type) {
             $stmt = $this->db->prepare(
                 "SELECT * FROM audit_log WHERE entity_type = ?
-                 ORDER BY created_at DESC LIMIT ?"
+                 ORDER BY created_at DESC LIMIT ? OFFSET ?"
             );
             $stmt->bindValue(1, $entity_type, SQLITE3_TEXT);
             $stmt->bindValue(2, $limit, SQLITE3_INTEGER);
+            $stmt->bindValue(3, $offset, SQLITE3_INTEGER);
         } else {
             $stmt = $this->db->prepare(
-                "SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ?"
+                "SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ? OFFSET ?"
             );
             $stmt->bindValue(1, $limit, SQLITE3_INTEGER);
+            $stmt->bindValue(2, $offset, SQLITE3_INTEGER);
         }
         $result = $stmt->execute();
         $rows = [];

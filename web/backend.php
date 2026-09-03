@@ -147,29 +147,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // TRANSFER ACTION
     // ====================================
     elseif ($action === 'transfer_add') {
-        $date       = isset($_POST['date'])         ? $_POST['date']                    : '';
-        $from_bank  = isset($_POST['from_bank_id']) ? intval($_POST['from_bank_id'])    : 0;
-        $to_bank    = isset($_POST['to_bank_id'])   ? intval($_POST['to_bank_id'])      : 0;
-        $amount     = isset($_POST['amount'])       ? floatval($_POST['amount'])        : 0;
-        $note       = isset($_POST['note'])         ? trim($_POST['note'])              : '';
-        $title      = isset($_POST['title'])        ? trim($_POST['title'])             : 'Transfer';
-        $ref_bank   = isset($_POST['ref_bank_id'])  ? intval($_POST['ref_bank_id'])     : 0;
+        $date        = isset($_POST['date'])         ? $_POST['date']                 : '';
+        $from_bank   = isset($_POST['from_bank_id']) ? intval($_POST['from_bank_id']) : 0;
+        $to_bank_raw = isset($_POST['to_bank_id'])   ? trim($_POST['to_bank_id'])     : '';
+        $to_bank     = ($to_bank_raw !== '' && intval($to_bank_raw) > 0) ? intval($to_bank_raw) : 0;
+        $to_wallet_raw = isset($_POST['to_wallet_id']) ? trim($_POST['to_wallet_id']) : '';
+        $to_wallet   = ($to_wallet_raw !== '' && intval($to_wallet_raw) > 0) ? intval($to_wallet_raw) : 0;
+        $amount      = isset($_POST['amount'])       ? floatval($_POST['amount'])     : 0;
+        $note        = isset($_POST['note'])         ? trim($_POST['note'])           : '';
+        $title       = isset($_POST['title'])        ? trim($_POST['title'])          : 'Transfer';
+        $ref_bank    = isset($_POST['ref_bank_id'])  ? intval($_POST['ref_bank_id'])  : 0;
 
         $validDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : null;
 
+        // Must have at least a source bank
+        // Destination: either a bank, or a wallet, or both — but not neither
+        $hasDestination = ($to_bank > 0 || $to_wallet > 0);
+
         if (!$validDate) {
             setFlashError('Invalid date for transfer.');
-        } elseif ($from_bank <= 0 || $to_bank <= 0) {
-            setFlashError('Please select both source and destination banks.');
-        } elseif ($from_bank === $to_bank) {
+        } elseif ($from_bank <= 0) {
+            setFlashError('Please select a source bank.');
+        } elseif (!$hasDestination) {
+            setFlashError('Please select a destination bank or wallet.');
+        } elseif ($to_bank > 0 && $from_bank === $to_bank) {
             setFlashError('Source and destination banks must be different.');
         } elseif ($amount <= 0) {
             setFlashError('Transfer amount must be greater than 0.');
         } else {
-            $result = $queries->addTransfer($validDate, $from_bank, $to_bank, $amount, $note, $title);
-            if ($result) {
-                $queries->auditLog('transfer_add', 'transfer', $result[0],
-                    'Transfer ₹' . number_format($amount, 2) . ' bank #' . $from_bank . ' → bank #' . $to_bank . ' on ' . $validDate);
+            if ($to_bank > 0) {
+                // Scenario 1 (and classic transfer): debit from_bank, credit to_bank
+                $result = $queries->addTransfer($validDate, $from_bank, $to_bank, $amount, $note, $title);
+                if ($result) {
+                    $queries->auditLog('transfer_add', 'transfer', $result[0],
+                        'Transfer ₹' . number_format($amount, 2) . ' bank #' . $from_bank . ' → bank #' . $to_bank . ' on ' . $validDate);
+                }
+                // Scenario 1 extension: also credit the chosen wallet (income, linked to to_bank)
+                if ($to_wallet > 0) {
+                    $wt_id = $queries->addTransaction($validDate, 'income', $amount, $to_wallet, $note, $title, $to_bank, null);
+                    $queries->auditLog('tx_add', 'transaction', $wt_id,
+                        'Income ₹' . number_format($amount, 2) . ' → wallet #' . $to_wallet . ' (transfer credit) on ' . $validDate);
+                }
+            } else {
+                // Scenario 2: no destination bank — wallet-only income, no bank balance change
+                $wt_id = $queries->addTransaction($validDate, 'income', $amount, $to_wallet, $note, $title, null, null);
+                $queries->auditLog('tx_add', 'transaction', $wt_id,
+                    'Income ₹' . number_format($amount, 2) . ' → wallet #' . $to_wallet . ' (wallet direct) on ' . $validDate);
             }
         }
 

@@ -88,13 +88,12 @@
 .dark-theme .btn-small.btn-danger {
     background: var(--accent-expense) !important;
     color: #ffffff !important;
-    border-color: var(--accent-expense) !important;
+    border: none !important;
 }
 
 .dark-theme .btn.btn-danger:hover,
 .dark-theme .btn-small.btn-danger:hover {
     background: #c0392b !important;
-    border-color: #c0392b !important;
     color: #ffffff !important;
 }
 
@@ -102,24 +101,22 @@
 .dark-theme .btn-small.btn-pause {
     background: #e67e22 !important;
     color: #ffffff !important;
-    border-color: #e67e22 !important;
+    border: none !important;
 }
 
 .dark-theme .btn-small.btn-pause:hover {
     background: #ca6f1e !important;
-    border-color: #ca6f1e !important;
 }
 
 /* Dark theme — resume stays green */
 .dark-theme .btn-small.btn-resume {
     background: var(--accent-income) !important;
     color: #ffffff !important;
-    border-color: var(--accent-income) !important;
+    border: none !important;
 }
 
 .dark-theme .btn-small.btn-resume:hover {
     background: #219a52 !important;
-    border-color: #219a52 !important;
 }
 
 html {
@@ -335,12 +332,11 @@ h2 {
 .btn-danger {
     background: var(--accent-expense);
     color: #ffffff;
-    border-color: var(--accent-expense);
+    border: none;
 }
 
 .btn-danger:hover {
     background: #c0392b;
-    border-color: #c0392b;
     color: #ffffff;
 }
 
@@ -348,12 +344,11 @@ h2 {
 .btn-pause {
     background: #e67e22;
     color: #ffffff;
-    border-color: #e67e22;
+    border: none;
 }
 
 .btn-pause:hover {
     background: #ca6f1e;
-    border-color: #ca6f1e;
     color: #ffffff;
 }
 
@@ -361,12 +356,11 @@ h2 {
 .btn-resume {
     background: var(--accent-income);
     color: #ffffff;
-    border-color: var(--accent-income);
+    border: none;
 }
 
 .btn-resume:hover {
     background: #219a52;
-    border-color: #219a52;
     color: #ffffff;
 }
 
@@ -2127,6 +2121,21 @@ select option {
         min-height: 44px;
     }
 
+    /* Filter action row: lock all buttons to the same size regardless of element type */
+    .filter-actions .btn-small {
+        font-size: 0.85rem;
+        padding: 0 14px;
+        height: 44px;
+        min-height: 44px;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+        border: 1px solid transparent;
+        width: auto;
+    }
+
     input[type="text"],
     input[type="date"],
     input[type="number"],
@@ -2344,6 +2353,15 @@ select option {
         font-size: 0.8rem;
         padding: 8px 12px;
         min-height: 36px;
+    }
+
+    /* Keep filter action buttons uniform on small screens too */
+    .filter-actions .btn-small {
+        font-size: 0.82rem;
+        padding: 0 12px;
+        height: 44px;
+        min-height: 44px;
+        width: auto;
     }
 
     .btn-nav-compact {
@@ -2830,13 +2848,20 @@ select option {
 .filter-actions {
     display: flex;
     gap: 8px;
-    align-items: center;
+    align-items: stretch;
 }
 
-.btn-small {
-    padding: 4px 12px;
+.filter-actions .btn-small {
+    padding: 6px 14px;
     font-size: 0.85rem;
-    height: auto;
+    height: 32px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 1px solid transparent;
+    vertical-align: middle;
 }
 
 .btn-outline {
@@ -2942,12 +2967,44 @@ select option {
     gap: 6px;
     line-height: 1.7;
 }
+
+/* sub-row spans — transparent wrappers on desktop so children flow inline */
+.ri-row-amount,
+.ri-row-bank,
+.ri-row-tags {
+    display: contents;
+}
 .recurring-item-actions {
     display: flex;
     gap: 6px;
     flex-shrink: 0;
-    align-items: center;
+    align-items: stretch;
     flex-wrap: wrap;
+}
+
+@media (max-width: 600px) {
+    .recurring-item {
+        flex-direction: column;
+    }
+    .recurring-item-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+    .ri-row-amount,
+    .ri-row-bank,
+    .ri-row-tags {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 5px;
+        width: 100%;
+    }
+    .recurring-item-actions {
+        width: 100%;
+        justify-content: flex-start;
+        margin-top: 6px;
+    }
 }
 
 /* ===================== DASHBOARD CHARTS ===================== */
@@ -3061,6 +3118,7 @@ select option {
     padding: 8px 12px;
     background: var(--card-bg);
     border: 1px solid var(--border);
+    border-left: 4px solid var(--border);
     border-radius: 7px;
     flex-wrap: wrap;
 }
@@ -3111,6 +3169,37 @@ select option {
     color: var(--muted);
     white-space: nowrap;
     flex-shrink: 0;
+}
+
+.audit-meta-row {
+    display: contents; /* transparent on desktop — children flow inline */
+}
+
+@media (max-width: 600px) {
+    .audit-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+    .audit-dot {
+        display: none;
+    }
+    .audit-body {
+        width: 100%;
+        flex-wrap: nowrap;
+        align-items: flex-start;
+        gap: 6px;
+    }
+    .audit-summary {
+        font-size: 0.9rem;
+        white-space: normal;
+    }
+    .audit-meta-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+    }
 }
 
 /* ============================================================
