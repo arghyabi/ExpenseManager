@@ -108,7 +108,7 @@ class Queries {
                 ), 0) as balance,
                 IFNULL(SUM(
                     CASE
-                        WHEN t.id IS NOT NULL AND t.payment_bank_id IS NULL THEN 1
+                        WHEN t.id IS NOT NULL AND t.payment_bank_id IS NULL AND t.transfer_pair_id IS NULL THEN 1
                         ELSE 0
                     END
                 ), 0) as warning_count
@@ -208,7 +208,7 @@ class Queries {
         $stmt = $this->db->prepare(
             "SELECT t.*, w.name as wallet, b.name as payment_method,
                     c.name as category_name, c.color as category_color,
-                    CASE WHEN t.payment_bank_id IS NULL THEN 1 ELSE 0 END as is_missing_bank
+                    CASE WHEN t.payment_bank_id IS NULL AND t.transfer_pair_id IS NULL THEN 1 ELSE 0 END as is_missing_bank
              FROM transactions t
              LEFT JOIN wallets w ON t.wallet_id = w.id
              LEFT JOIN banks b ON b.id = t.payment_bank_id
@@ -235,7 +235,7 @@ class Queries {
         $stmt = $this->db->prepare(
             "SELECT t.*, w.name as wallet, b.name as payment_method,
                     c.name as category_name, c.color as category_color,
-                    CASE WHEN t.payment_bank_id IS NULL THEN 1 ELSE 0 END as is_missing_bank
+                    CASE WHEN t.payment_bank_id IS NULL AND t.transfer_pair_id IS NULL THEN 1 ELSE 0 END as is_missing_bank
              FROM transactions t
              LEFT JOIN wallets w ON t.wallet_id = w.id
              LEFT JOIN banks b ON b.id = t.payment_bank_id
@@ -352,7 +352,7 @@ class Queries {
         [$where, $params] = $this->_buildFilterWhere('t.wallet_id = ?', $wallet_id, $filters);
         $sql = "SELECT t.*, w.name as wallet, b.name as payment_method,
                     c.name as category_name, c.color as category_color,
-                    CASE WHEN t.payment_bank_id IS NULL THEN 1 ELSE 0 END as is_missing_bank
+                    CASE WHEN t.payment_bank_id IS NULL AND t.transfer_pair_id IS NULL THEN 1 ELSE 0 END as is_missing_bank
                 FROM transactions t
                 LEFT JOIN wallets w ON t.wallet_id = w.id
                 LEFT JOIN banks b ON b.id = t.payment_bank_id
@@ -606,11 +606,18 @@ class Queries {
     public function deleteTransaction($tx_id) {
         $tx = $this->getTransactionById($tx_id);
         if ($tx && !empty($tx['transfer_pair_id'])) {
-            // Transfers: hard-delete both legs (no audit trail needed for paired entries)
-            $paired_id = $tx['transfer_pair_id'];
-            $stmt = $this->db->prepare("DELETE FROM transactions WHERE id = ? OR id = ?");
-            $stmt->bindValue(1, $tx_id, SQLITE3_INTEGER);
-            $stmt->bindValue(2, $paired_id, SQLITE3_INTEGER);
+            // Collect all IDs in the chain: this tx, its pair, and the pair's pair (wallet-linked transfers form a 3-way chain)
+            $paired_id  = $tx['transfer_pair_id'];
+            $ids = [$tx_id, $paired_id];
+            $paired_tx = $this->getTransactionById($paired_id);
+            if ($paired_tx && !empty($paired_tx['transfer_pair_id']) && !in_array($paired_tx['transfer_pair_id'], $ids)) {
+                $ids[] = $paired_tx['transfer_pair_id'];
+            }
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $stmt = $this->db->prepare("DELETE FROM transactions WHERE id IN ($placeholders)");
+            foreach ($ids as $i => $id) {
+                $stmt->bindValue($i + 1, $id, SQLITE3_INTEGER);
+            }
             return $stmt->execute();
         }
         // Regular transactions: soft-delete (sets deleted_at, keeps row for audit trail)
@@ -661,6 +668,13 @@ class Queries {
         $link2->execute();
 
         return [$from_id, $to_id];
+    }
+
+    public function setTransferPairId($tx_id, $pair_id) {
+        $stmt = $this->db->prepare("UPDATE transactions SET transfer_pair_id = ? WHERE id = ?");
+        $stmt->bindValue(1, $pair_id, SQLITE3_INTEGER);
+        $stmt->bindValue(2, $tx_id,   SQLITE3_INTEGER);
+        return $stmt->execute();
     }
 
     public function getTransactionById($tx_id) {

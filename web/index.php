@@ -891,7 +891,8 @@ if ($view === 'main') {
                     <div class="tx-date"><?= htmlspecialchars($r['date']) ?></div>
                     <?php if($isTransfer): ?>
                     <div class="tx-transfer-badge">🔄 <?= $r['type'] === 'expense' ? 'Transfer Out' : 'Transfer In' ?></div>
-                    <?php elseif(!empty($r['category_name'])): ?>
+                    <?php endif; ?>
+                    <?php if(!empty($r['category_name'])): ?>
                     <span class="tx-category-badge" style="background:<?= htmlspecialchars($r['category_color']) ?>;"><?= htmlspecialchars($r['category_name']) ?></span>
                     <?php endif; ?>
                     <?php if(!$isTransfer): ?>
@@ -1387,19 +1388,25 @@ if ($view === 'main') {
         <?php
         if ($transactions):
             while($r = $transactions->fetchArray(SQLITE3_ASSOC)):
+            $isTransfer = !empty($r['transfer_pair_id']);
         ?>
-            <div class="card tx-card">
+            <div class="card tx-card<?= $isTransfer ? ' tx-transfer-card' : '' ?>">
                 <div class="tx-container">
                     <div class="tx-left-section">
                         <div class="tx-title"><?= htmlspecialchars($r['title'] ?? 'Transaction') ?></div>
                         <div class="tx-date"><?= htmlspecialchars($r['date']) ?></div>
+                        <?php if($isTransfer): ?>
+                        <div class="tx-transfer-badge">🔄 Transfer In</div>
+                        <?php endif; ?>
                         <?php if(!empty($r['category_name'])): ?>
                         <span class="tx-category-badge" style="background:<?= htmlspecialchars($r['category_color']) ?>;"><?= htmlspecialchars($r['category_name']) ?></span>
                         <?php endif; ?>
-                        <?php if(!empty($r['payment_method'])): ?>
-                        <div class="tx-note" style="color: var(--muted); font-size: 0.85rem;">💳 <?= htmlspecialchars($r['payment_method']) ?></div>
-                        <?php elseif(!empty($r['is_missing_bank'])): ?>
-                        <div class="tx-note" style="color: #d35400; font-size: 0.85rem;">⚠ Bank not selected. Update transaction to assign a bank.</div>
+                        <?php if(!$isTransfer): ?>
+                            <?php if(!empty($r['payment_method'])): ?>
+                            <div class="tx-note" style="color: var(--muted); font-size: 0.85rem;">💳 <?= htmlspecialchars($r['payment_method']) ?></div>
+                            <?php elseif(!empty($r['is_missing_bank'])): ?>
+                            <div class="tx-note" style="color: #d35400; font-size: 0.85rem;">⚠ Bank not selected. Update transaction to assign a bank.</div>
+                            <?php endif; ?>
                         <?php endif; ?>
                         <?php if(!empty($r['note'])): ?>
                         <div class="tx-note"><?= htmlspecialchars($r['note']) ?></div>
@@ -1407,13 +1414,15 @@ if ($view === 'main') {
                     </div>
                     <div class="tx-right-section">
                         <div class="tx-menu-container">
-                            <button class="tx-menu-btn" data-id="<?= htmlspecialchars($r['id']) ?>" data-date="<?= htmlspecialchars($r['date']) ?>" data-type="<?= htmlspecialchars($r['type']) ?>" data-amount="<?= htmlspecialchars($r['amount']) ?>" data-wallet="<?= htmlspecialchars($r['wallet_id']) ?>" data-note="<?= htmlspecialchars($r['note']) ?>" data-title="<?= htmlspecialchars($r['title'] ?? '') ?>" data-payment-method="<?= htmlspecialchars($r['payment_bank_id'] ?? '') ?>" data-category="<?= htmlspecialchars($r['category_id'] ?? '') ?>" data-desc="<?= htmlspecialchars($r['date'] . ' - ' . $currentWallet['name']) ?>">⋮</button>
+                            <button class="tx-menu-btn" data-id="<?= htmlspecialchars($r['id']) ?>" data-date="<?= htmlspecialchars($r['date']) ?>" data-type="<?= htmlspecialchars($r['type']) ?>" data-amount="<?= htmlspecialchars($r['amount']) ?>" data-wallet="<?= htmlspecialchars($r['wallet_id']) ?>" data-note="<?= htmlspecialchars($r['note']) ?>" data-title="<?= htmlspecialchars($r['title'] ?? '') ?>" data-payment-method="<?= htmlspecialchars($r['payment_bank_id'] ?? '') ?>" data-category="<?= htmlspecialchars($r['category_id'] ?? '') ?>" data-transfer="<?= $isTransfer ? '1' : '' ?>" data-desc="<?= htmlspecialchars($r['date'] . ' - ' . $currentWallet['name']) ?>">⋮</button>
                             <div class="tx-menu-dropdown">
+                                <?php if(!$isTransfer): ?>
                                 <button class="tx-menu-item tx-edit-option">✏️ Edit</button>
-                                <button class="tx-menu-item tx-delete-option">🗑️ Delete</button>
+                                <?php endif; ?>
+                                <button class="tx-menu-item tx-delete-option">🗑️ <?= $isTransfer ? 'Delete Transfer' : 'Delete' ?></button>
                             </div>
                         </div>
-                        <div class="type-badge <?= $r['type'] ?>"><?= ucfirst($r['type']) ?></div>
+                        <div class="type-badge <?= $isTransfer ? 'transfer' : $r['type'] ?>"><?= $isTransfer ? 'Transfer ↓' : ucfirst($r['type']) ?></div>
                         <div class="tx-amount">₹ <?= number_format($r['amount'], 2) ?></div>
                     </div>
                 </div>
@@ -2758,6 +2767,18 @@ while ($tw = $twRes->fetchArray(SQLITE3_ASSOC)) {
             <div class="form-group">
                 <label for="transfer-amount">Amount (₹)</label>
                 <input id="transfer-amount" type="number" step="0.01" name="amount" required min="0.01" autocomplete="off">
+            </div>
+            <div class="form-group" id="transfer-category-group">
+                <label for="transfer-category">Wallet Category <span style="color:var(--muted);font-weight:normal;font-size:0.85rem;">Optional — applied to wallet entry</span></label>
+                <select id="transfer-category" name="wallet_category_id">
+                    <option value="">-- Uncategorised --</option>
+                    <?php
+                    $transferCats = $queries->getAllCategories();
+                    while ($tc = $transferCats->fetchArray(SQLITE3_ASSOC)):
+                    ?>
+                    <option value="<?= htmlspecialchars($tc['id']) ?>"><?= htmlspecialchars($tc['name']) ?></option>
+                    <?php endwhile; ?>
+                </select>
             </div>
             <div class="form-group">
                 <label for="transfer-note">Note</label>
