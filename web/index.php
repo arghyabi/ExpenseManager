@@ -780,6 +780,15 @@ if ($view === 'main') {
     <?php if ($hasActiveFilter): ?>
     <div class="filter-result-info">Showing <?= $totalCount ?> matching transaction<?= $totalCount !== 1 ? 's' : '' ?></div>
     <?php endif; ?>
+    <?php
+    // Build filter query string here so both top and bottom pagination can use it
+    $filterQS = '';
+    if ($filterQ !== '')        $filterQS .= '&q='         . urlencode($filterQ);
+    if ($filterType !== '')     $filterQS .= '&ftype='     . urlencode($filterType);
+    if ($filterCat !== 0)       $filterQS .= '&fcat='      . intval($filterCat);
+    if ($filterDateFrom !== '') $filterQS .= '&date_from=' . urlencode($filterDateFrom);
+    if ($filterDateTo !== '')   $filterQS .= '&date_to='   . urlencode($filterDateTo);
+    ?>
     <?php if (!$selectedMonth && $totalPages > 1): ?>
     <div class="pagination-wrap" style="margin-bottom:8px;">
         <div class="pagination">
@@ -819,7 +828,7 @@ if ($view === 'main') {
                 </div>
                 <div class="tx-right-section">
                     <div class="tx-menu-container">
-                        <button class="tx-menu-btn" data-id="<?= htmlspecialchars($r['id']) ?>" data-date="<?= htmlspecialchars($r['date']) ?>" data-type="<?= htmlspecialchars($r['type']) ?>" data-amount="<?= htmlspecialchars($r['amount']) ?>" data-wallet="<?= htmlspecialchars($r['wallet_id']) ?>" data-note="<?= htmlspecialchars($r['note']) ?>" data-title="<?= htmlspecialchars($r['title'] ?? '') ?>" data-payment-method="<?= htmlspecialchars($r['payment_bank_id'] ?? '') ?>" data-category="<?= htmlspecialchars($r['category_id'] ?? '') ?>" data-transfer="<?= htmlspecialchars($isTransfer ? '1' : '') ?>" data-desc="<?= htmlspecialchars($r['date'] . ' - ' . ($r['title'] ?? 'Transfer')) ?>">⋮</button>
+                        <button class="tx-menu-btn" data-id="<?= htmlspecialchars($r['id']) ?>" data-date="<?= htmlspecialchars($r['date']) ?>" data-type="<?= htmlspecialchars($r['type']) ?>" data-amount="<?= htmlspecialchars($r['amount']) ?>" data-wallet="<?= htmlspecialchars($r['wallet_id'] ?? '') ?>" data-note="<?= htmlspecialchars($r['note'] ?? '') ?>" data-title="<?= htmlspecialchars($r['title'] ?? '') ?>" data-payment-method="<?= htmlspecialchars($r['payment_bank_id'] ?? '') ?>" data-category="<?= htmlspecialchars($r['category_id'] ?? '') ?>" data-transfer="<?= htmlspecialchars($isTransfer ? '1' : '') ?>" data-desc="<?= htmlspecialchars($r['date'] . ' - ' . ($r['title'] ?? 'Transfer')) ?>">⋮</button>
                         <div class="tx-menu-dropdown">
                             <?php if(!$isTransfer): ?>
                             <button class="tx-menu-item tx-edit-option">✏️ Edit</button>
@@ -836,15 +845,6 @@ if ($view === 'main') {
     </div>
 
     <!-- Pagination for all transactions view -->
-    <?php
-    // Build filter query string to preserve across pagination
-    $filterQS = '';
-    if ($filterQ !== '')        $filterQS .= '&q='         . urlencode($filterQ);
-    if ($filterType !== '')     $filterQS .= '&ftype='     . urlencode($filterType);
-    if ($filterCat !== 0)       $filterQS .= '&fcat='      . intval($filterCat);
-    if ($filterDateFrom !== '') $filterQS .= '&date_from=' . urlencode($filterDateFrom);
-    if ($filterDateTo !== '')   $filterQS .= '&date_to='   . urlencode($filterDateTo);
-    ?>
     <?php if (!$selectedMonth): ?>
     <div class="pagination-wrap">
         <div class="pagination">
@@ -1281,6 +1281,16 @@ if ($view === 'main') {
     <?php if ($hasActiveFilter): ?>
     <div class="filter-result-info">Showing <?= $totalCount ?> matching transaction<?= $totalCount !== 1 ? 's' : '' ?></div>
     <?php endif; ?>
+    <?php
+    if (!isset($filterQS)) {
+        $filterQS = '';
+        if ($filterQ !== '')        $filterQS .= '&q='         . urlencode($filterQ);
+        if ($filterType !== '')     $filterQS .= '&ftype='     . urlencode($filterType);
+        if ($filterCat !== 0)       $filterQS .= '&fcat='      . intval($filterCat);
+        if ($filterDateFrom !== '') $filterQS .= '&date_from=' . urlencode($filterDateFrom);
+        if ($filterDateTo !== '')   $filterQS .= '&date_to='   . urlencode($filterDateTo);
+    }
+    ?>
     <?php if (!$selectedMonth && $totalPages > 1): ?>
     <div class="pagination-wrap" style="margin-bottom:8px;">
         <div class="pagination">
@@ -1338,17 +1348,6 @@ if ($view === 'main') {
     </div>
 
     <!-- Pagination for all transactions view -->
-    <?php
-    // Reuse $filterQS built in bank section (available since this is the same request)
-    if (!isset($filterQS)) {
-        $filterQS = '';
-        if ($filterQ !== '')        $filterQS .= '&q='         . urlencode($filterQ);
-        if ($filterType !== '')     $filterQS .= '&ftype='     . urlencode($filterType);
-        if ($filterCat !== 0)       $filterQS .= '&fcat='      . intval($filterCat);
-        if ($filterDateFrom !== '') $filterQS .= '&date_from=' . urlencode($filterDateFrom);
-        if ($filterDateTo !== '')   $filterQS .= '&date_to='   . urlencode($filterDateTo);
-    }
-    ?>
     <?php if (!$selectedMonth): ?>
     <div class="pagination-wrap">
         <div class="pagination">
@@ -1526,22 +1525,26 @@ if ($view === 'main') {
                     <?php endif; ?>
                 </div>
                 <div class="recurring-item-meta">
-                    <span class="type-badge <?= $rule['type'] ?>" style="font-size:0.7rem;height:20px;padding:0 7px;"><?= ucfirst($rule['type']) ?></span>
-                    <strong>₹ <?= number_format($rule['amount'], 2) ?></strong>
-                    · <?= ucfirst($rule['frequency']) ?>
-                    · Next: <strong><?= htmlspecialchars($rule['next_due']) ?></strong>
-                    <?php if ($rule['bank_name']): ?>
-                    · 🏦 <?= htmlspecialchars($rule['bank_name']) ?>
+                    <span class="ri-row-amount">
+                        <strong>₹ <?= number_format($rule['amount'], 2) ?></strong>
+                        · <?= ucfirst($rule['frequency']) ?>
+                        · Next: <strong><?= htmlspecialchars($rule['next_due']) ?></strong>
+                    </span>
+                    <?php if ($rule['bank_name'] || $rule['wallet_name']): ?>
+                    <span class="ri-row-bank">
+                        <?php if ($rule['bank_name']): ?>🏦 <?= htmlspecialchars($rule['bank_name']) ?><?php endif; ?>
+                        <?php if ($rule['wallet_name']): ?>💳 <?= htmlspecialchars($rule['wallet_name']) ?><?php endif; ?>
+                    </span>
                     <?php endif; ?>
-                    <?php if ($rule['wallet_name']): ?>
-                    · 💳 <?= htmlspecialchars($rule['wallet_name']) ?>
-                    <?php endif; ?>
-                    <?php if ($rule['category_name']): ?>
-                    · <span style="display:inline-block;padding:1px 7px;border-radius:8px;font-size:0.75rem;font-weight:600;color:#fff;background:<?= htmlspecialchars($rule['category_color']) ?>;"><?= htmlspecialchars($rule['category_name']) ?></span>
-                    <?php endif; ?>
-                    <?php if ($rule['note']): ?>
-                    · <em style="color:var(--muted)"><?= htmlspecialchars($rule['note']) ?></em>
-                    <?php endif; ?>
+                    <span class="ri-row-tags">
+                        <span class="type-badge <?= $rule['type'] ?>" style="font-size:0.7rem;height:20px;padding:0 7px;"><?= ucfirst($rule['type']) ?></span>
+                        <?php if ($rule['category_name']): ?>
+                        <span style="display:inline-block;padding:1px 7px;border-radius:8px;font-size:0.75rem;font-weight:600;color:#fff;background:<?= htmlspecialchars($rule['category_color']) ?>;"><?= htmlspecialchars($rule['category_name']) ?></span>
+                        <?php endif; ?>
+                        <?php if ($rule['note']): ?>
+                        <em style="color:var(--muted)"><?= htmlspecialchars($rule['note']) ?></em>
+                        <?php endif; ?>
+                    </span>
                 </div>
             </div>
             <div class="recurring-item-actions">
@@ -1756,27 +1759,32 @@ if ($view === 'main') {
                     <?php endif; ?>
                 </div>
                 <div class="recurring-item-meta">
-                    <span class="type-badge <?= $br['type'] ?>" style="font-size:0.7rem;height:20px;padding:0 7px;"><?= ucfirst($br['type']) ?></span>
-                    <?php if ($br['default_amount'] > 0): ?>
-                    <strong>₹ <?= number_format($br['default_amount'], 2) ?></strong>
+                    <span class="ri-row-amount">
+                        <?php if ($br['default_amount'] > 0): ?>
+                        <strong>₹ <?= number_format($br['default_amount'], 2) ?></strong>
+                        ·
+                        <?php endif; ?>
+                        <?= $br['frequency'] === 'yearly' ? 'Yearly' : 'Monthly' ?>
+                        · Notify from day <strong><?= htmlspecialchars($br['notify_day']) ?></strong>
+                        <?php if ($br['frequency'] === 'yearly'): ?>
+                        · Month <strong><?= date('F', mktime(0,0,0,$br['notify_month'],1)) ?></strong>
+                        <?php endif; ?>
+                    </span>
+                    <?php if ($br['bank_name'] || $br['wallet_name']): ?>
+                    <span class="ri-row-bank">
+                        <?php if ($br['bank_name']): ?>🏦 <?= htmlspecialchars($br['bank_name']) ?><?php endif; ?>
+                        <?php if ($br['wallet_name']): ?>💳 <?= htmlspecialchars($br['wallet_name']) ?><?php endif; ?>
+                    </span>
                     <?php endif; ?>
-                    · <?= $br['frequency'] === 'yearly' ? 'Yearly' : 'Monthly' ?>
-                    · Notify from day <strong><?= htmlspecialchars($br['notify_day']) ?></strong>
-                    <?php if ($br['frequency'] === 'yearly'): ?>
-                    · Month <strong><?= date('F', mktime(0,0,0,$br['notify_month'],1)) ?></strong>
-                    <?php endif; ?>
-                    <?php if ($br['bank_name']): ?>
-                    · 🏦 <?= htmlspecialchars($br['bank_name']) ?>
-                    <?php endif; ?>
-                    <?php if ($br['wallet_name']): ?>
-                    · 💳 <?= htmlspecialchars($br['wallet_name']) ?>
-                    <?php endif; ?>
-                    <?php if ($br['category_name']): ?>
-                    · <span style="display:inline-block;padding:1px 7px;border-radius:8px;font-size:0.75rem;font-weight:600;color:#fff;background:<?= htmlspecialchars($br['category_color']) ?>;"><?= htmlspecialchars($br['category_name']) ?></span>
-                    <?php endif; ?>
-                    <?php if ($br['note']): ?>
-                    · <em style="color:var(--muted)"><?= htmlspecialchars($br['note']) ?></em>
-                    <?php endif; ?>
+                    <span class="ri-row-tags">
+                        <span class="type-badge <?= $br['type'] ?>" style="font-size:0.7rem;height:20px;padding:0 7px;"><?= ucfirst($br['type']) ?></span>
+                        <?php if ($br['category_name']): ?>
+                        <span style="display:inline-block;padding:1px 7px;border-radius:8px;font-size:0.75rem;font-weight:600;color:#fff;background:<?= htmlspecialchars($br['category_color']) ?>;"><?= htmlspecialchars($br['category_name']) ?></span>
+                        <?php endif; ?>
+                        <?php if ($br['note']): ?>
+                        <em style="color:var(--muted)"><?= htmlspecialchars($br['note']) ?></em>
+                        <?php endif; ?>
+                    </span>
                 </div>
             </div>
             <div class="recurring-item-actions">
@@ -1991,7 +1999,14 @@ if ($view === 'main') {
     $auditFilter = isset($_GET['etype']) ? trim($_GET['etype']) : '';
     $validEtypes = ['transaction', 'bank', 'wallet', 'transfer', 'recurring', 'category', 'bill_reminder'];
     if (!in_array($auditFilter, $validEtypes)) $auditFilter = '';
-    $auditRows = $queries->getAuditLog(200, $auditFilter);
+
+    $auditPerPage = 50;
+    $auditPage    = isset($_GET['apage']) ? max(1, intval($_GET['apage'])) : 1;
+    $auditTotal   = $queries->getAuditCount($auditFilter);
+    $auditPages   = max(1, (int)ceil($auditTotal / $auditPerPage));
+    $auditPage    = min($auditPage, $auditPages);
+    $auditOffset  = ($auditPage - 1) * $auditPerPage;
+    $auditRows    = $queries->getAuditLog($auditPerPage, $auditFilter, $auditOffset);
 
     $entityIcons = [
         'transaction'   => '💳',
@@ -2035,9 +2050,30 @@ if ($view === 'main') {
         <?php endforeach; ?>
     </div>
 
+    <?php
+    // Build base URL for pagination (preserves active filter)
+    $auditBaseUrl = '?view=audit' . ($auditFilter ? '&etype=' . urlencode($auditFilter) : '');
+    ?>
+
     <?php if (empty($auditRows)): ?>
     <p class="empty-state">No audit entries yet.</p>
     <?php else: ?>
+
+    <!-- Pagination — top -->
+    <?php if ($auditPages > 1): ?>
+    <div class="pagination-wrap" style="margin-bottom:10px;">
+        <div class="pagination">
+            <?php if ($auditPage > 1): ?>
+            <a class="btn btn-nav-compact" href="<?= $auditBaseUrl ?>&apage=<?= $auditPage - 1 ?>">← Prev</a>
+            <?php endif; ?>
+            <span class="page-info"><?= $auditPage ?> of <?= $auditPages ?> (<?= $auditTotal ?>)</span>
+            <?php if ($auditPage < $auditPages): ?>
+            <a class="btn btn-nav-compact" href="<?= $auditBaseUrl ?>&apage=<?= $auditPage + 1 ?>">Next →</a>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <div class="audit-list">
         <?php foreach ($auditRows as $entry):
             // Determine colour from action suffix
@@ -2045,17 +2081,35 @@ if ($view === 'main') {
             $dotColor = $actionColors[$actionSuffix] ?? '#95a5a6';
             $icon = $entityIcons[$entry['entity_type']] ?? '📝';
         ?>
-        <div class="audit-item">
+        <div class="audit-item" style="border-left-color:<?= $dotColor ?>;">
             <span class="audit-dot" style="background:<?= $dotColor ?>;"></span>
             <div class="audit-body">
                 <span class="audit-icon"><?= $icon ?></span>
                 <span class="audit-summary"><?= htmlspecialchars($entry['summary']) ?></span>
-                <span class="audit-action-badge" style="background:<?= $dotColor ?>;"><?= htmlspecialchars($entry['action']) ?></span>
             </div>
-            <span class="audit-time"><?= htmlspecialchars($entry['created_at']) ?></span>
+            <div class="audit-meta-row">
+                <span class="audit-action-badge" style="background:<?= $dotColor ?>;"><?= htmlspecialchars($entry['action']) ?></span>
+                <span class="audit-time"><?= htmlspecialchars($entry['created_at']) ?></span>
+            </div>
         </div>
         <?php endforeach; ?>
     </div>
+
+    <!-- Pagination — bottom -->
+    <?php if ($auditPages > 1): ?>
+    <div class="pagination-wrap" style="margin-top:10px;">
+        <div class="pagination">
+            <?php if ($auditPage > 1): ?>
+            <a class="btn btn-nav-compact" href="<?= $auditBaseUrl ?>&apage=<?= $auditPage - 1 ?>">← Prev</a>
+            <?php endif; ?>
+            <span class="page-info"><?= $auditPage ?> of <?= $auditPages ?> (<?= $auditTotal ?>)</span>
+            <?php if ($auditPage < $auditPages): ?>
+            <a class="btn btn-nav-compact" href="<?= $auditBaseUrl ?>&apage=<?= $auditPage + 1 ?>">Next →</a>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <?php endif; ?>
 
 <?php endif; ?>
@@ -2555,16 +2609,23 @@ if ($view === 'main') {
 </div>
 
 <!-- Transfer Modal -->
+<?php
+// Build wallet map keyed by bank_id for JS filtering
+$allWalletsForTransfer = [];
+$twRes = $queries->getAllWallets();
+while ($tw = $twRes->fetchArray(SQLITE3_ASSOC)) {
+    $allWalletsForTransfer[] = ['id' => $tw['id'], 'name' => $tw['name'], 'bank_id' => $tw['bank_id']];
+}
+?>
 <div id="transfer-modal-overlay" class="modal-overlay" aria-hidden="true">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="transfer-modal-title">
         <div class="modal-header">
-            <h3 id="transfer-modal-title">🔄 Bank Transfer</h3>
+            <h3 id="transfer-modal-title">🔄 Transfer / Credit Wallet</h3>
             <button id="transfer-modal-close" class="modal-close-btn">✕</button>
         </div>
         <form id="transfer-form" action="backend.php" method="post">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
             <input type="hidden" name="action" value="transfer_add">
-            <!-- ref_bank_id: used to redirect back to the originating bank view -->
             <input type="hidden" id="transfer-ref-bank" name="ref_bank_id" value="<?= ($view === 'bank' && $currentBank) ? htmlspecialchars($currentBank['id']) : '' ?>">
 
             <div class="form-group">
@@ -2576,7 +2637,7 @@ if ($view === 'main') {
                 <input id="transfer-title" type="text" name="title" value="Transfer" placeholder="e.g., Transfer, NEFT, IMPS" autocomplete="off">
             </div>
             <div class="form-group">
-                <label for="transfer-from">From Bank</label>
+                <label for="transfer-from">From Bank <span style="color:var(--accent-expense);font-size:0.85rem;">*</span></label>
                 <select id="transfer-from" name="from_bank_id" required>
                     <option value="">-- Select source bank --</option>
                     <?php
@@ -2589,9 +2650,9 @@ if ($view === 'main') {
                 </select>
             </div>
             <div class="form-group">
-                <label for="transfer-to">To Bank</label>
-                <select id="transfer-to" name="to_bank_id" required>
-                    <option value="">-- Select destination bank --</option>
+                <label for="transfer-to">To Bank <span style="color:var(--muted);font-weight:normal;font-size:0.85rem;">Optional — leave blank for wallet-only credit</span></label>
+                <select id="transfer-to" name="to_bank_id">
+                    <option value="">-- None (wallet only) --</option>
                     <?php
                     $transferBanks2 = $queries->getAllBanks();
                     while($tb2 = $transferBanks2->fetchArray(SQLITE3_ASSOC)) {
@@ -2599,6 +2660,21 @@ if ($view === 'main') {
                         <option value="<?= htmlspecialchars($tb2['id']) ?>"><?= htmlspecialchars($tb2['name']) ?></option>
                     <?php } ?>
                 </select>
+            </div>
+            <div class="form-group">
+                <label for="transfer-to-wallet">Credit Wallet <span style="color:var(--muted);font-weight:normal;font-size:0.85rem;">Optional — only wallets linked to "To Bank"</span></label>
+                <select id="transfer-to-wallet" name="to_wallet_id">
+                    <option value="">-- None --</option>
+                    <?php foreach ($allWalletsForTransfer as $tw): ?>
+                    <option value="<?= htmlspecialchars($tw['id']) ?>"
+                            data-bank="<?= htmlspecialchars($tw['bank_id'] ?? '') ?>">
+                        <?= htmlspecialchars($tw['name']) ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+                <small id="transfer-wallet-hint" style="color:var(--muted);margin-top:4px;display:block;">
+                    Select "To Bank" first to filter wallets.
+                </small>
             </div>
             <div class="form-group">
                 <label for="transfer-amount">Amount (₹)</label>
@@ -2609,12 +2685,64 @@ if ($view === 'main') {
                 <input id="transfer-note" type="text" name="note" placeholder="Optional reference / note..." autocomplete="off">
             </div>
             <div style="display:flex;gap:10px;align-items:center;">
-                <button type="submit">💾 Record Transfer</button>
+                <button type="submit">💾 Record</button>
                 <button type="button" id="transfer-modal-cancel" class="back-link">Cancel</button>
             </div>
         </form>
     </div>
 </div>
+
+<script>
+(function() {
+    // Wallet data for filtering
+    var allWallets = <?= json_encode($allWalletsForTransfer) ?>;
+
+    var fromBank = document.getElementById('transfer-from');
+    var toBank   = document.getElementById('transfer-to');
+    var toWallet = document.getElementById('transfer-to-wallet');
+    var hint     = document.getElementById('transfer-wallet-hint');
+
+    function filterWallets() {
+        // Use "To Bank" if set, otherwise fall back to "From Bank"
+        var filterBank = toBank.value !== '' ? toBank.value : fromBank.value;
+        var prevVal = toWallet.value;
+
+        // Remove all options except the first blank one
+        while (toWallet.options.length > 1) toWallet.remove(1);
+
+        var filtered = filterBank === ''
+            ? []   // neither bank selected yet — show nothing
+            : allWallets.filter(function(w) {
+                return String(w.bank_id) === String(filterBank);
+              });
+
+        filtered.forEach(function(w) {
+            var opt = document.createElement('option');
+            opt.value = w.id;
+            opt.textContent = w.name;
+            toWallet.appendChild(opt);
+        });
+
+        // Restore previous selection if still available
+        toWallet.value = prevVal;
+
+        if (filterBank === '') {
+            hint.textContent = 'Select a source bank first.';
+        } else if (filtered.length === 0) {
+            hint.textContent = 'No wallets linked to this bank.';
+        } else {
+            var bankLabel = toBank.value !== '' ? '"To Bank"' : '"From Bank"';
+            hint.textContent = filtered.length + ' wallet' + (filtered.length > 1 ? 's' : '') + ' from ' + bankLabel + '.';
+        }
+    }
+
+    fromBank.addEventListener('change', filterWallets);
+    toBank.addEventListener('change', filterWallets);
+
+    // Run once on load in case bank is pre-selected
+    filterWallets();
+})();
+</script>
 
 </body>
 </html>
